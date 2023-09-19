@@ -1,0 +1,14 @@
+# csvtocsvw-js:
+#   filter: rjsmin
+#   output: ckanext-csvtocsvw/%(version)s-csvtocsvw.js
+#   contents:
+#     - js/csvtocsvw.js
+#   extra:
+#     preload:
+#       - base/main
+
+# csvtocsvw-css:
+#   filter: cssrewrite
+#   output: ckanext-csvtocsvw/%(version)s-csvtocsvw.css
+#   contents:
+#     - css/csvtocsvw.css
