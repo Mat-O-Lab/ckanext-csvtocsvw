@@ -2,7 +2,7 @@
 
 import pytest
 
-import ckanext.csvtocsvw.validators as validators
+#import ckanext.csvtocsvw.validators as validators
 
 
 import ckan.plugins.toolkit as tk
