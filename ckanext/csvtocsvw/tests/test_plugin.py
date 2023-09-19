@@ -49,7 +49,7 @@ To temporary patch the CKAN configuration for the duration of a test you can use
 """
 import pytest
 import ckanext.csvtocsvw.plugin as plugin
-
+from ckan.plugins.core import plugin_loaded
 
 @pytest.mark.ckan_config("ckan.plugins", "csvtocsvw")
 @pytest.mark.usefixtures("with_plugins")
