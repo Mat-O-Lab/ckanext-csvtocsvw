@@ -18,3 +18,4 @@ def command(name):
 
 def get_commands():
     return [csvtocsvw]
+

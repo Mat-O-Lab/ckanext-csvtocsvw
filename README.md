@@ -2,7 +2,7 @@
 
 # ckanext-csvtocsvw
 
-**TODO:** Put a description of your extension here:  What does it do? What features does it have? Consider including some screenshots or embedding a video!
+Extension automatically generating csvw metadata for uploaded textual tabular data.
 
 
 ## Requirements
