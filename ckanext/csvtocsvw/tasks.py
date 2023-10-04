@@ -12,39 +12,94 @@ import ckanapi.datapackage
 
 from ckan import model
 from ckan.plugins.toolkit import get_action, config
-from ckanext.csvtocsvw.annotate import annotate_csv_uri
+from ckanext.csvtocsvw.annotate import annotate_csv_upload
 
 import ckan.lib.helpers as h
-
+import json
 log = __import__('logging').getLogger(__name__)
 
-CKAN_URL= os.environ.get("CKAN_SITE_URL")
+CKAN_URL= os.environ.get("CKAN_SITE_URL","http://localhost:5000")
+CSVTOCSVW_TOKEN= os.environ.get("CSVTOCSVW_TOKEN","")
 
+
+from werkzeug.datastructures import FileStorage as FlaskFileStorage
+
+def update_resource_file(resource_id, f):
+       context = {
+           'ignore_auth': True,
+           'user': '',
+       }
+       upload = cgi.FieldStorage()
+       upload.filename = getattr(f, 'name', 'data')
+       upload.file = f
+       data = {
+           'id': resource_id,
+           'url': 'will-be-overwritten-automatically',
+           'upload': upload,
+       }
+       return get_action('resource_update')(context, data)
+
+from requests.auth import HTTPBasicAuth
 
 def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
-    url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
-            ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
-    log.debug('Annotating: {}'.format(url))
-    filename,file=annotate_csv_uri(url)
-    log.debug('Got result with name: {}'.format(filename))
+    # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
+    #         ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
+    csv_res=get_action('resource_show')({'ignore_auth': True}, {'id': res_id})
+    log.debug('Annotating: {}'.format(csv_res['url']))
+    #need to get it as string, casue url annotation doesnt work with private datasets
+    #filename,filedata=annotate_csv_uri(csv_res['url'])
+
+    s = requests.Session()
+    s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
+    csv_data=s.get(csv_res['url']).content
+    prefix,suffix=csv_res['name'].rsplit('.',1)
+    #log.debug(csv_data)
+    with tempfile.NamedTemporaryFile(prefix=prefix,suffix='.'+suffix) as csv:
+        csv.write(csv_data)
+        csv.seek(0)
+        csv_name=csv.name
+        result=annotate_csv_upload(csv.name)
+    meta_data=json.dumps(result['filedata'], indent=2)
+    log.debug('Got result with name: {}'.format(result['filename']))
+    #replace csv url and name
+    csv_name=csv_name.rsplit('/',1)[-1]
+    dummy_url="file:///src/{}/".format(csv_name)
+    filename=prefix+'-metadata.json'
+    log.debug('replacing url: {} with {}'.format(dummy_url,csv_res['url']))
+    log.debug('replacing id: {} with {}'.format(csv_name,csv_res['name']))
+    meta_data=meta_data.replace(dummy_url,csv_res['url']+'/').replace(csv_name,csv_res['name'])
+
     # Upload resource to CKAN as a new/updated resource
-    local_ckan = ckanapi.LocalCKAN()
+    #res=get_resource(res_id)
+    res=resource_search(dataset_id,filename)
+    #log.debug(meta_data)
+    prefix,suffix=filename.rsplit('.',1)
+
+
+    f = tempfile.NamedTemporaryFile(prefix=prefix,suffix='.'+suffix,delete=False)
+    f.write(meta_data.encode('utf-8'))
+    f.close()
+    temp_file_name = f.name
+    upload=FlaskFileStorage(open(temp_file_name, 'rb'), filename)
     resource = dict(
         package_id=dataset_id,
         #url='dummy-value',
-        upload=file,
+        upload=upload,
         name=filename,
-        format=u'json-ld',
+        format=u'json-ld'
     )
-    # if not existing_zip_resource:
-    #     #log.debug('Writing new resource to - {}'.format(dataset['name']))
-    #     local_ckan.action.resource_create(**resource)
-    # else:
-    #     # TODO update the existing zip resource (using patch?)
-    #     log.debug('Updating zip resource - {}'.format(dataset['name']))
-    #     local_ckan.action.resource_patch(
-    #         id=existing_zip_resource['id'],
-    #         **resource)
+    if not res:
+        log.debug('Writing new resource to - {}'.format(dataset_id))
+        #local_ckan.action.resource_create(**resource)
+        get_action('resource_create')({'ignore_auth': True}, resource)
+    
+    else:
+        log.debug('Updating resource - {}'.format(res['id']))
+        # local_ckan.action.resource_patch(
+        #     id=res['id'],
+        #     **resource)
+        resource['id']= res['id']
+        get_action('resource_update')({'ignore_auth': True}, resource)
 
         
 
@@ -85,6 +140,24 @@ def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
     #         local_ckan.action.resource_patch(
     #             id=existing_zip_resource['id'],
     #             **resource)
+
+def get_resource(id):
+    local_ckan = ckanapi.LocalCKAN()
+    try:
+        res=local_ckan.action.resource_show(id=id)
+    except:
+        return False
+    else:
+        return res
+
+def resource_search(dataset_id, res_name):
+    local_ckan = ckanapi.LocalCKAN()
+    dataset=local_ckan.action.package_show(id=dataset_id)
+    log.debug(dataset)
+    for res in dataset['resources']:
+        if res['name']==res_name:
+            return res
+    return None
 
 def update_zip(package_id, skip_if_no_changes=True):
     '''

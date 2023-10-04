@@ -47,9 +47,11 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
         log.debug(u'{} {} \'{}\''
                   .format(operation, type(entity).__name__, entity.name))
         if isinstance(entity, model.Resource):
-            log.debug('new uploaded resouce')
+            log.debug('new uploaded resource')
             dataset = entity.related_packages()[0]
-            enqueue_csvw_annotate(entity.id, entity.name, entity.url, dataset.id, operation)
+            if entity.format=='CSV':
+                log.debug('plugin notify event for resource: {}'.format(entity.id))
+                enqueue_csvw_annotate(entity.id, entity.name, entity.url, dataset.id, operation)
         else:
             return
 
@@ -127,23 +129,27 @@ def enqueue_csvw_annotate(res_id, res_name, res_url, dataset_id, operation):
     queue = DEFAULT_QUEUE_NAME
     jobs = toolkit.get_action('job_list')(
         {'ignore_auth': True}, {'queues': [queue]})
+    log.debug("jobs")
+    log.debug(jobs)
+            
     if jobs:
         for job in jobs:
             if not job['title']:
                 continue
-            match = re.match(
-                r'DownloadAll \w+ "[^"]*" ([\w-]+)', job[u'title'])
+            match = re.match(r'CSVtoCSVW \w+ "[^"]*" ([\w-]+)', job[u'title'])
+            log.debug("match")
+            log.debug(match)
+            
             if match:
                 queued_resource_id = match.groups()[0]
                 if res_id == queued_resource_id:
-                    log.info('Already queued dataset: {} {}'
+                    log.info('Already queued resource: {} {}'
                              .format(res_name, res_id))
                     return
 
     # add this dataset to the queue
     log.debug(u'Queuing job csvw_annotate: {} {}'
               .format(operation, res_name))
-
     toolkit.enqueue_job(
         annotate_csv, [res_url, res_id, dataset_id],
         title=u'CSVtoCSVW {} "{}" {}'.format(operation, res_name, res_url),
