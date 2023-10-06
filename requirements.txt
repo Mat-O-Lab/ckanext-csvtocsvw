@@ -1,4 +1,6 @@
 ckanapi
-requests
+requests>=2.4.2
 pytest
 pytest-ckan
+rdflib
+pandas

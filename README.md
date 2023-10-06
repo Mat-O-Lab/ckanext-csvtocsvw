@@ -3,7 +3,7 @@
 # ckanext-csvtocsvw
 
 Extension automatically generating csvw metadata for uploaded textual tabular data.
-
+**should be used as replacement for datapusher**
 
 ## Requirements
 

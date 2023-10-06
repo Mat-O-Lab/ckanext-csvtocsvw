@@ -44,10 +44,10 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
         if operation == 'deleted':
             return
 
-        log.debug(u'{} {} \'{}\''
+        log.debug(u'notify: {} {} \'{}\''
                   .format(operation, type(entity).__name__, entity.name))
         if isinstance(entity, model.Resource):
-            log.debug('new uploaded resource')
+            log.debug('new uploaded resource')    
             dataset = entity.related_packages()[0]
             if entity.format=='CSV':
                 log.debug('plugin notify event for resource: {}'.format(entity.id))
@@ -87,6 +87,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
             # datastore is enabled, so we need to chain the datastore_create
             # action, to update the zip when it is called
             actions['datastore_create'] = action.datastore_create
+        #actions['resource_update'] = action.resource_update
         return actions
 
 

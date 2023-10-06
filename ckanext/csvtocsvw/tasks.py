@@ -13,6 +13,7 @@ import ckanapi.datapackage
 from ckan import model
 from ckan.plugins.toolkit import get_action, config
 from ckanext.csvtocsvw.annotate import annotate_csv_upload
+from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
 
 import ckan.lib.helpers as h
 import json
@@ -20,6 +21,7 @@ log = __import__('logging').getLogger(__name__)
 
 CKAN_URL= os.environ.get("CKAN_SITE_URL","http://localhost:5000")
 CSVTOCSVW_TOKEN= os.environ.get("CSVTOCSVW_TOKEN","")
+CHUNK_INSERT_ROWS = 250
 
 
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
@@ -52,7 +54,11 @@ def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
     s = requests.Session()
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
     csv_data=s.get(csv_res['url']).content
-    prefix,suffix=csv_res['name'].rsplit('.',1)
+    prefix,suffix=csv_res['url'].rsplit('/',1)[-1].rsplit('.',1)
+    if not prefix:
+        prefix='unnamed'
+    if not suffix:
+        suffix='csv'
     #log.debug(csv_data)
     with tempfile.NamedTemporaryFile(prefix=prefix,suffix='.'+suffix) as csv:
         csv.write(csv_data)
@@ -71,35 +77,83 @@ def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
 
     # Upload resource to CKAN as a new/updated resource
     #res=get_resource(res_id)
-    res=resource_search(dataset_id,filename)
+    metadata_res=resource_search(dataset_id,filename)
     #log.debug(meta_data)
     prefix,suffix=filename.rsplit('.',1)
 
 
-    f = tempfile.NamedTemporaryFile(prefix=prefix,suffix='.'+suffix,delete=False)
-    f.write(meta_data.encode('utf-8'))
-    f.close()
-    temp_file_name = f.name
-    upload=FlaskFileStorage(open(temp_file_name, 'rb'), filename)
-    resource = dict(
-        package_id=dataset_id,
-        #url='dummy-value',
-        upload=upload,
-        name=filename,
-        format=u'json-ld'
-    )
-    if not res:
-        log.debug('Writing new resource to - {}'.format(dataset_id))
-        #local_ckan.action.resource_create(**resource)
-        get_action('resource_create')({'ignore_auth': True}, resource)
-    
-    else:
-        log.debug('Updating resource - {}'.format(res['id']))
-        # local_ckan.action.resource_patch(
-        #     id=res['id'],
-        #     **resource)
-        resource['id']= res['id']
-        get_action('resource_update')({'ignore_auth': True}, resource)
+    #f = tempfile.NamedTemporaryFile(prefix=prefix,suffix='.'+suffix,delete=False)
+    with tempfile.NamedTemporaryFile(prefix=prefix,suffix='.'+suffix) as metadata_file:
+        metadata_file.write(meta_data.encode('utf-8'))
+        metadata_file.seek(0)
+        temp_file_name = metadata_file.name
+        upload=FlaskFileStorage(open(temp_file_name, 'rb'), filename)
+        resource = dict(
+            package_id=dataset_id,
+            #url='dummy-value',
+            upload=upload,
+            name=filename,
+            format=u'json-ld'
+        )
+        if not metadata_res:
+            log.debug('Writing new resource to - {}'.format(dataset_id))
+            #local_ckan.action.resource_create(**resource)
+            metadata_res=get_action('resource_create')({'ignore_auth': True}, resource)
+            log.debug(metadata_res)
+            
+        else:
+            log.debug('Updating resource - {}'.format(metadata_res['id']))
+            # local_ckan.action.resource_patch(
+            #     id=res['id'],
+            #     **resource)
+            resource['id']= metadata_res['id']
+            get_action('resource_update')({'ignore_auth': True}, resource)
+    #delete the datastore created from datapusher
+    delete_datastore_resource(csv_res['id'],s)
+    #use csvw metadata to readout the cvs
+    parse=CSVWtoRDF(meta_data, csv_data)
+    #pick table one, can only put one table to datastore
+    table_key=next(iter(parse.tables))
+    table_data=parse.tables[table_key]
+    headers=simple_columns(table_data['columns'])
+    log.debug(headers)
+    # headers=[
+    #     {
+    #         "id":  "value",
+    #         "type":   "numeric",
+    #         "info": {
+    #             "label":  "Value",
+    #             "notes":  "An xample Value Column",
+    #             #"type_override":  # type for datapusher to use when importing data
+    #             #...:  # other user-defined fields
+    #         }
+    #     }
+    # ]
+    # records=[
+    # {
+    #     "index": 1,
+    #     "value": 2
+    # },
+    # {
+    #     "index": 2,
+    #     "value": 3
+    # }
+    # ]
+    column_names=[column['id'] for column in headers]
+    table_records=list()
+    for line in table_data['lines']:
+        record=dict()
+        for i, value in enumerate(line[1:]):
+            record[column_names[i]]=value
+        table_records.append(record)
+    #log.debug(table_records[:3])
+    count = 0
+    for i, chunk in enumerate(chunky(table_records, CHUNK_INSERT_ROWS)):
+        records, is_it_the_last_chunk = chunk
+        count += len(records)
+        log.info('Saving chunk {number} {is_last}'.format(
+            number=i, is_last='(last)' if is_it_the_last_chunk else ''))
+        send_resource_to_datastore(csv_res['id'],headers,records,s, is_it_the_last_chunk)
 
         
 
@@ -140,6 +194,88 @@ def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
     #         local_ckan.action.resource_patch(
     #             id=existing_zip_resource['id'],
     #             **resource)
+
+try:
+    from urllib.parse import urlsplit
+except ImportError:
+    from urlparse import urlsplit
+
+def get_url(action):
+    """
+    Get url for ckan action
+    """
+    if not urlsplit(CKAN_URL).scheme:
+        ckan_url = 'http://' + CKAN_URL.lstrip('/')
+    ckan_url = CKAN_URL.rstrip('/')
+    return '{ckan_url}/api/3/action/{action}'.format(
+        ckan_url=ckan_url, action=action)
+
+import itertools
+
+def chunky(items, num_items_per_chunk):
+    """
+    Breaks up a list of items into chunks - multiple smaller lists of items.
+    The last chunk is flagged up.
+
+    :param items: Size of each chunks
+    :type items: iterable
+    :param num_items_per_chunk: Size of each chunks
+    :type num_items_per_chunk: int
+
+    :returns: multiple tuples: (chunk, is_it_the_last_chunk)
+    :rtype: generator of (list, bool)
+    """
+    items_ = iter(items)
+    chunk = list(itertools.islice(items_, num_items_per_chunk))
+    while chunk:
+        next_chunk = list(itertools.islice(items_, num_items_per_chunk))
+        chunk_is_the_last_one = not next_chunk
+        yield chunk, chunk_is_the_last_one
+        chunk = next_chunk
+
+
+
+def delete_datastore_resource(resource_id, session):
+    delete_url = get_url('datastore_delete')
+    res = session.post(
+        delete_url, 
+        json={'id': resource_id, 'force': True}
+        )
+    if res.status_code!=200:
+        log.debug(res.content)
+        log.debug('Deleting existing datastore of resource {} failed.'.format(resource_id))
+    else:
+        log.debug('Datastore of resource {} deleted.'.format(resource_id))
+
+class DatastoreEncoder(json.JSONEncoder):
+    # Custon JSON encoder
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        if isinstance(obj, decimal.Decimal):
+            return str(obj)
+
+        return json.JSONEncoder.default(self, obj)
+
+def send_resource_to_datastore(resource_id, headers, records, session, is_it_the_last_chunk=True):
+    """
+    Stores records in CKAN datastore
+    """
+    request = {'resource_id': resource_id,
+               'fields': headers,
+               'force': True,
+               'records': records,
+               'calculate_record_count': is_it_the_last_chunk
+               }
+    #log.debug(request)
+    url = get_url('datastore_create')
+    res = session.post(url, json=request)
+    if res.status_code!=200:
+        log.debug(res.content)
+        log.debug('Create of datastore for resource {} failed.'.format(resource_id))
+    else:
+        log.debug('Datastore of resource {} created.'.format(resource_id))
+
 
 def get_resource(id):
     local_ckan = ckanapi.LocalCKAN()
