@@ -10,10 +10,10 @@ Needs a running instance of the [CSVToCSVW Application](https://github.com/Mat-O
 Point at it through env variables.
 Also needed is a Api Token for an account with the right privaledges to make the background job work on private datasets and ressources.
 
-´´´cmd
+```bash
 CKAN_CSVTOCSVW_URL=http://${CSVTOCSVW_HOST}:${CSVTOCSVW_APP_PORT}
 CSVTOCSVW_TOKEN=${CKAN_DATAPUSHER_URL_API_TOKEN}
-´´´
+```
 
 **TODO:** For example, you might want to mention here which versions of CKAN this
 extension works with.
