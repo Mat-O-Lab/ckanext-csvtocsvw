@@ -12,7 +12,7 @@ Also needed is a Api Token for an account with the right privaledges to make the
 
 ```bash
 CKAN_CSVTOCSVW_URL=http://${CSVTOCSVW_HOST}:${CSVTOCSVW_APP_PORT}
-CSVTOCSVW_TOKEN=${CKAN_DATAPUSHER_URL_API_TOKEN}
+CSVTOCSVW_TOKEN=${CKAN_API_TOKEN}
 ```
 
 **TODO:** For example, you might want to mention here which versions of CKAN this
