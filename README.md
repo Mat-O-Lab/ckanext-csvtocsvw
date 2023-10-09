@@ -2,7 +2,7 @@
 
 # ckanext-csvtocsvw
 
-Extension automatically generating csvw metadata for uploaded textual tabular data.
+Extension automatically generating csvw metadata for uploaded textual tabular data. It uploads the data of the first table documented into a datastore for the source csv file.
 **should be used as replacement for datapusher**
 
 ## Requirements
@@ -16,10 +16,9 @@ Compatibility with core CKAN versions:
 
 | CKAN version    | Compatible?   |
 | --------------- | ------------- |
-| 2.6 and earlier | not tested    |
-| 2.7             | not tested    |
-| 2.8             | not tested    |
-| 2.9             | not tested    |
+| 2.8 and arlier  | not tested    |
+| 2.9             | yes    |
+| 2.10            | yes    |
 
 Suggested values:
 
