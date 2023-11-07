@@ -64,7 +64,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     def notify(self, resource: model.Resource):
         context: Context = {'ignore_auth': True}
-        resource_dict = p.toolkit.get_action(u'resource_show')(
+        resource_dict = toolkit.get_action(u'resource_show')(
             context, {
                 u'id': resource.id,
             }
