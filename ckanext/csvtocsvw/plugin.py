@@ -69,7 +69,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
                 u'id': resource.id,
             }
         )
-        self._submit_to_datapusher(resource_dict)
+        self._sumbit_toannotate(resource_dict)
 
     # IResourceController
 
@@ -111,7 +111,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
             toolkit.get_action('csvtocsvw_annotate')(context,{'id': resource_dict['id']})
              
         except toolkit.ValidationError as e:
-            # If datapusher is offline want to catch error instead
+            # If CSVTOCSVW is offline want to catch error instead
             # of raising otherwise resource save will fail with 500
             log.critical(e)
             pass
