@@ -1,14 +1,97 @@
 from flask import Blueprint
 
-csvtocsvw = Blueprint("csvtocsvw", __name__)
+blueprint = Blueprint("csvtocsvw", __name__)
 
+
+from flask import Blueprint
+from flask.views import MethodView
+import ckan.plugins.toolkit as toolkit
+import ckan.lib.helpers as core_helpers
+import ckan.lib.base as base
+import json
+
+log = __import__("logging").getLogger(__name__)
+
+class AnnotateView(MethodView):
+    def post(self, id: str, resource_id: str):
+        try:
+            toolkit.get_action('csvtocsvw_annotate')(
+                {}, {
+                    'resource_id': resource_id
+                }
+            )
+        except toolkit.ValidationError:
+            log.debug(toolkit.ValidationError)
+        
+        return core_helpers.redirect_to(
+            'csvtocsvw.csv_annotate', id=id, resource_id=resource_id
+        )
+       
+
+    def get(self, id: str, resource_id: str):
+        try:
+            pkg_dict = toolkit.get_action('package_show')({}, {'id': id})
+            resource = toolkit.get_action('resource_show'
+                                          )({}, {
+                                              'id': resource_id
+                                          })
+
+            # backward compatibility with old templates
+            toolkit.g.pkg_dict = pkg_dict
+            toolkit.g.resource = resource
+
+        except (toolkit.ObjectNotFound, toolkit.NotAuthorized):
+            base.abort(404, _('Resource not found'))
+        status=None 
+        try:
+            task = toolkit.get_action('task_status_show')({}, { 'entity_id': resource['id'],'task_type': 'csvtocsvw', 'key': 'csvtocsvw'})
+        except:
+            status=None
+        else:
+            value = json.loads(task['value'])
+            job_id = value.get('job_id')
+            url = None
+            try:
+                error = json.loads(task['error'])
+            except ValueError:
+                # this happens occasionally, such as when the job times out
+                error = task['error']
+            status={
+                'status': task['state'],
+                'job_id': job_id,
+                'job_url': url,
+                'last_updated': task['last_updated'],
+                'error': error,
+            }
+        # try:
+        #     transform_status=toolkit.get_action('csvwmapandtransform_transform_status')(
+        #             {}, {
+        #                 'resource_id': resource_id
+        #             }
+        #     )
+        # except:
+        #     transform_status=None
+            
+    
+        return base.render(
+            'csvtocsvw/csv_annotate.html',
+            extra_vars={
+                'pkg_dict': pkg_dict,
+                'resource': resource,
+                'status': status,
+            }
+        )
+
+blueprint.add_url_rule(
+    '/dataset/<id>/resource/<resource_id>/csv_annotate',
+    view_func=AnnotateView.as_view(str('csv_annotate'))
+)
+
+def get_blueprint():
+    return blueprint
 
 # def page():
 #     return "Hello, csvtocsvw!"
 
 
 # csvtocsvw.add_url_rule("/csvtocsvw/page", view_func=page)
-
-
-def get_blueprints():
-    return [csvtocsvw]

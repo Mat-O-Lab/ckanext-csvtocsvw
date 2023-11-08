@@ -5,10 +5,11 @@ import tempfile
 import ckanapi
 import ckanapi.datapackage
 import requests
-from ckan.plugins.toolkit import get_action
+from ckan import model
+from ckan.plugins.toolkit import get_action, asbool
 from ckanext.csvtocsvw.annotate import annotate_csv_upload
 from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
-
+import datetime
 
 try:
     from urllib.parse import urlsplit
@@ -21,6 +22,10 @@ log = __import__("logging").getLogger(__name__)
 CKAN_URL = os.environ.get("CKAN_SITE_URL", "http://localhost:5000")
 CSVTOCSVW_TOKEN = os.environ.get("CSVTOCSVW_TOKEN", "")
 CHUNK_INSERT_ROWS = 250
+
+SSL_VERIFY = asbool(os.environ.get("CSVTOCSVW_SSL_VERIFY", True))
+if not SSL_VERIFY:
+    requests.packages.urllib3.disable_warnings()
 
 
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
@@ -44,11 +49,30 @@ def update_resource_file(resource_id, f):
 
 from requests.auth import HTTPBasicAuth
 
-
-def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
+def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True):
     # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
     #         ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
-    csv_res = get_action("resource_show")({"ignore_auth": True}, {"id": res_id})
+    context={
+        'session': model.meta.create_local_session(),
+        "ignore_auth": True
+        }
+    metadata = {
+            'ckan_url': CKAN_URL,
+            'resource_id': res_id,
+            'task_created': last_updated,
+            'original_url': res_url,
+        }
+    job_info=dict()
+    job_dict = dict(metadata=metadata,
+                    status='running',
+                    job_info=job_info
+    )
+    errored = False
+    callback_csvtocsvw_hook(callback_url,
+                          api_key=CSVTOCSVW_TOKEN,
+                          job_dict=job_dict)
+
+    csv_res = get_action("resource_show")(context, {"id": res_id})
     log.debug("Annotating: {}".format(csv_res["url"]))
     # need to get it as string, casue url annotation doesnt work with private datasets
     # filename,filedata=annotate_csv_uri(csv_res['url'])
@@ -104,7 +128,7 @@ def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
             log.debug("Writing new resource to - {}".format(dataset_id))
             # local_ckan.action.resource_create(**resource)
             metadata_res = get_action("resource_create")(
-                {"ignore_auth": True}, resource
+                context, resource
             )
             log.debug(metadata_res)
 
@@ -114,7 +138,7 @@ def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
             #     id=res['id'],
             #     **resource)
             resource["id"] = metadata_res["id"]
-            get_action("resource_update")({"ignore_auth": True}, resource)
+            metadata_res=get_action("resource_update")(context, resource)
     # delete the datastore created from datapusher
     delete_datastore_resource(csv_res["id"], s)
     # use csvw metadata to readout the cvs
@@ -145,7 +169,11 @@ def annotate_csv(res_url, res_id, dataset_id, skip_if_no_changes=True):
         send_resource_to_datastore(
             csv_res["id"], headers, records, s, is_it_the_last_chunk
         )
-
+    job_dict['status'] = 'complete'
+    callback_csvtocsvw_hook(callback_url,
+                          api_key=CSVTOCSVW_TOKEN,
+                          job_dict=job_dict)
+    return 'error' if errored else None
 
 def get_url(action):
     """
@@ -246,3 +274,34 @@ def resource_search(dataset_id, res_name):
         if res["name"] == res_name:
             return res
     return None
+
+def callback_csvtocsvw_hook(result_url, api_key, job_dict):
+    '''Tells CKAN about the result of the csvtocsvw (i.e. calls the callback
+    function 'csvtocsvw_hook'). Usually called by the csvtocsvw queue job.
+    '''
+    headers = {'Content-Type': 'application/json'}
+    if api_key:
+        if ':' in api_key:
+            header, key = api_key.split(':')
+        else:
+            header, key = 'Authorization', api_key
+        headers[header] = key
+
+    try:
+        result = requests.post(
+            result_url,
+            data=json.dumps(job_dict, cls=DatetimeJsonEncoder),
+            verify=SSL_VERIFY,
+            headers=headers)
+    except requests.ConnectionError:
+        return False
+
+    return result.status_code == requests.codes.ok
+
+
+class DatetimeJsonEncoder(json.JSONEncoder):
+    # Custom JSON encoder
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+

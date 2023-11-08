@@ -8,7 +8,7 @@ from ckan.lib.plugins import DefaultTranslation
 from ckan.types import Context
 from typing import Any
 
-from ckanext.csvtocsvw import action, helpers
+from ckanext.csvtocsvw import action, helpers, views
 
 log = __import__("logging").getLogger(__name__)
 
@@ -25,6 +25,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     plugins.implements(plugins.IResourceUrlChange)
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IActions)
+    plugins.implements(plugins.IBlueprint)
     # plugins.implements(plugins.IAuthFunctions)
 
     # IConfigurer
@@ -127,3 +128,8 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def get_actions(self):
         actions = action.get_actions()
         return actions
+    
+    # IBlueprint
+
+    def get_blueprint(self):
+        return views.get_blueprint()
