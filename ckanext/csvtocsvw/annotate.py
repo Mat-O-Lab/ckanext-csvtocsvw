@@ -48,11 +48,9 @@ def annotate_csv_upload(
     head, tail = os.path.split(filepath)
     files = {"file": (tail, open(filepath, "rb"), "text/csv")}
     response = requests.post(url, headers=headers, files=files)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return response
-
+    response.raise_for_status()
+    return response.json()
+    
 
 def csvw_to_rdf(
     meta_url: str,
