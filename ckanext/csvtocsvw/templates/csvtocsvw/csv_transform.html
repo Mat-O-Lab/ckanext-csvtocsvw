@@ -9,7 +9,7 @@
   {{ super() }}
   {% if res %}
       <li>{% link_for h.resource_display_name(res)|truncate(30), named_route=pkg.type ~ '_resource.read', id=pkg.name, resource_id=res.id %}</li>
-      <li{% block breadcrumb_edit_selected %} class="active"{% endblock %}><a href="">{{ _('Annotate') }}</a></li>
+      <li{% block breadcrumb_edit_selected %} class="active"{% endblock %}><a href="">{{ _('Transform') }}</a></li>
   {% endif %}
 {% endblock %}
 
@@ -26,15 +26,16 @@
 {% endblock %}
 
 {% block primary_content_inner %}
-  <h1 >{% block form_title %}{{ _('Annotation Status') }}{% endblock %}</h1>
+  <h1 >{% block form_title %}{{ _('Transform Status') }}{% endblock %}</h1>
   {% block form %}
   <form method="post" action="{{ action }}" class="csvtocsvw-form">
     {{ h.csrf_input() }} 
     <button class="btn btn-primary" name="save" type="submit">
-      <i class="fa fa-play"></i> {{ _('Run Annotation') }}
+      <i class="fa fa-play"></i> {{ _('Run Transformation') }}
     </button>
   </form>
   {% endblock %}
+  {{task}}
   {% if status %}
     {% if status.error and status.error.message %}
       {% set show_table = false %}

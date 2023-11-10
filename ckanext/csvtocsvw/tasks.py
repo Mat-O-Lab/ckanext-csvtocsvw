@@ -7,14 +7,10 @@ import ckanapi.datapackage
 import requests
 from ckan import model
 from ckan.plugins.toolkit import get_action, asbool
-from ckanext.csvtocsvw.annotate import annotate_csv_upload
+from ckanext.csvtocsvw.annotate import annotate_csv_upload, csvw_to_rdf
 from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
 import datetime
-
-try:
-    from urllib.parse import urlsplit
-except ImportError:
-    from urlparse import urlsplit
+from urllib.parse import urlparse, urljoin, urlsplit
 
 
 log = __import__("logging").getLogger(__name__)
@@ -31,24 +27,6 @@ if not SSL_VERIFY:
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
 
-def update_resource_file(resource_id, f):
-    context = {
-        "ignore_auth": True,
-        "user": "",
-    }
-    upload = cgi.FieldStorage()
-    upload.filename = getattr(f, "name", "data")
-    upload.file = f
-    data = {
-        "id": resource_id,
-        "url": "will-be-overwritten-automatically",
-        "upload": upload,
-    }
-    return get_action("resource_update")(context, data)
-
-
-from requests.auth import HTTPBasicAuth
-
 def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True):
     # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
     #         ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
@@ -61,6 +39,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
             'resource_id': res_id,
             'task_created': last_updated,
             'original_url': res_url,
+            'task_key': "csvtocsvw_annotate"
         }
     job_info=dict()
     job_dict = dict(metadata=metadata,
@@ -185,6 +164,88 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
                           job_dict=job_dict)
     return 'error' if errored else None
 
+def transform_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True):
+    # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
+    #         ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
+    context={
+        'session': model.meta.create_local_session(),
+        "ignore_auth": True
+        }
+    metadata = {
+            'ckan_url': CKAN_URL,
+            'resource_id': res_id,
+            'task_created': last_updated,
+            'original_url': res_url,
+            'task_key': "csvtocsvw_transform"
+        }
+    job_info=dict()
+    job_dict = dict(metadata=metadata,
+                    status='running',
+                    job_info=job_info
+    )
+    errored = False
+    callback_csvtocsvw_hook(callback_url,
+                          api_key=CSVTOCSVW_TOKEN,
+                          job_dict=job_dict)
+    csv_res = get_action("resource_show")(context, {"id": res_id})
+    # need to get it as string, casue url annotation doesnt work with private datasets
+    # filename,filedata=annotate_csv_uri(csv_res['url'])
+    prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
+    if not prefix:
+        prefix = "unnamed"
+    format="turtle"
+    metadata_res = resource_search(dataset_id, prefix+"-metadata.json")
+    log.debug("Transforming {} with metedata {}".format(csv_res["url"],metadata_res['url']))
+    filename,filedata=csvw_to_rdf(metadata_res['url'],format=format,authorization=CSVTOCSVW_TOKEN)
+    #upload result to ckan
+    rdf_res = resource_search(dataset_id, filename)
+    if rdf_res:
+        existing_id=rdf_res['id']
+        log.debug("Found existing resources {}".format(rdf_res))
+    else:
+        existing_id=None
+    res=file_upload(dataset_id=dataset_id, filename=filename, filedata=filedata,res_id=existing_id, format=format, authorization=CSVTOCSVW_TOKEN)
+    # prefix, suffix = filename.rsplit(".", 1)
+    # with tempfile.NamedTemporaryFile(
+    #     prefix=prefix, suffix="." + suffix
+    # ) as metadata_file:
+    #     metadata_file.write(filedata)
+    #     metadata_file.seek(0)
+    #     temp_file_name = metadata_file.name
+    #     upload = FlaskFileStorage(open(temp_file_name, "rb"), filename)
+    #     resource = dict(
+    #         package_id=dataset_id,
+    #         # url='dummy-value',
+    #         upload=upload,
+    #         name=filename,
+    #         format=format,
+    #     )
+    #     if not rdf_res:
+    #         log.debug("Writing new resource to - {}".format(dataset_id))
+    #         # local_ckan.action.resource_create(**resource)
+    #         rdf_res = get_action("resource_create")(
+    #             {"ignore_auth": True}, resource
+    #         )
+    #         log.debug(rdf_res)
+
+    #     else:
+    #         log.debug("Updating resource - {}".format(rdf_res["id"]))
+    #         # local_ckan.action.resource_patch(
+    #         #     id=res['id'],
+    #         #     **resource)
+    #         resource["id"] = rdf_res["id"]
+    #         get_action("resource_update")(context, resource)
+        
+    if not errored:
+        job_dict['status'] = 'complete'
+    else:
+        job_dict['status'] = 'errored'
+    callback_csvtocsvw_hook(callback_url,
+                          api_key=CSVTOCSVW_TOKEN,
+                          job_dict=job_dict)
+    return 'error' if errored else None
+
+
 def get_url(action):
     """
     Get url for ckan action
@@ -307,6 +368,42 @@ def callback_csvtocsvw_hook(result_url, api_key, job_dict):
         return False
 
     return result.status_code == requests.codes.ok
+
+from io import BytesIO
+
+def file_upload(dataset_id, filename, filedata, res_id=None,format='', group=None, mime_type='text/csv', authorization=None):
+    data_stream=BytesIO(filedata)
+    headers={}
+    if authorization:
+        headers['Authorization']=authorization
+    #files=[('upload', data_stream)]
+    files=[('upload', (filename, data_stream, mime_type))]
+    data={
+        "package_id": dataset_id,
+        "name": filename,
+        "format": format
+    }
+    if res_id:
+        url=expand_url(CKAN_URL,'/api/action/resource_update')
+        data['id']=res_id
+        response=requests.post(url, headers=headers,json=data, files=files)
+    else:
+        url=expand_url(CKAN_URL,'/api/action/resource_create')
+        response=requests.post(url, headers=headers,data=data, files=files)
+    
+    response.raise_for_status()
+    r=response.json()
+    log.debug('file {} uploaded at: {}'.format(filename,r))
+    return r
+
+def expand_url(base, url):
+    p_url = urlparse(url)
+    if not p_url.scheme in ['https', 'http']:
+        #relative url?
+        p_url=urljoin(base, p_url.path)
+        return p_url
+    else:
+        return p_url.path.geturl()
 
 
 class DatetimeJsonEncoder(json.JSONEncoder):

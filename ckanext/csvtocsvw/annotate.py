@@ -55,11 +55,16 @@ def annotate_csv_upload(
 def csvw_to_rdf(
     meta_url: str,
     format: str = "turtle",
+    authorization = None    
 ):
     # curl -X 'POST' \ 'https://csvtocsvw.matolab.org/api/rdf' \ -H 'accept: application/json' \ -H 'Content-Type: application/json' \ -d '{ "metadata_url": "https://github.com/Mat-O-Lab/resources/raw/main/rdfconverter/tests/detection_runs-metadata.json", "format": "turtle" }'
     url = csvtocsvw_url + "/api/rdf"
+    #url = "http://docker-dev.iwm.fraunhofer.de:6008" + "/api/rdf"
+    
     data = {"metadata_url": meta_url, "format": format}
     headers = {"Content-type": "application/json", "Accept": "application/json"}
+    if authorization:
+        headers['Authorization']=authorization
     # r = requests.post(url, data=json.dumps(data), headers=headers)
     r = post_request(url, headers, data)
     if r.status_code == 200:

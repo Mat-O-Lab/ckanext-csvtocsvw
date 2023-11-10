@@ -35,31 +35,6 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
         toolkit.add_public_directory(config_, "public")
         toolkit.add_resource("fanstatic", "csvtocsvw")
 
-    # # IDomainObjectModification
-
-    # def notify(self, entity, operation):
-    #     """
-    #     Send a notification on entity modification.
-
-    #     :param entity: instance of module.Package.
-    #     :param operation: 'new', 'changed' or 'deleted'.
-    #     """
-    #     if operation == "deleted":
-    #         return
-
-    #     log.debug(
-    #         "notify: {} {} '{}'".format(operation, type(entity).__name__, entity.name)
-    #     )
-    #     if isinstance(entity, model.Resource):
-    #         log.debug("new uploaded resource")
-    #         dataset = entity.related_packages()[0]
-    #         if entity.format == "CSV":
-    #             log.debug("plugin notify event for resource: {}".format(entity.id))
-    #             enqueue_csvw_annotate(
-    #                 entity.id, entity.name, entity.url, dataset.id, operation
-    #             )
-    #     else:
-    #         return
 
     # IResourceUrlChange
 
