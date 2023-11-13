@@ -130,31 +130,32 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
         # use csvw metadata to readout the cvs
         parse = CSVWtoRDF(meta_data, csv_data)
         # pick table one, can only put one table to datastore
-        table_key = next(iter(parse.tables))
-        table_data = parse.tables[table_key]
-        headers = simple_columns(table_data["columns"])
-        log.debug(headers)
+        if len(parse.tables)>0:
+            table_key = next(iter(parse.tables))
+            table_data = parse.tables[table_key]
+            headers = simple_columns(table_data["columns"])
+            log.debug(headers)
 
-        column_names = [column["id"] for column in headers]
-        table_records = list()
-        for line in table_data["lines"]:
-            record = dict()
-            for i, value in enumerate(line[1:]):
-                record[column_names[i]] = value
-            table_records.append(record)
-        # log.debug(table_records[:3])
-        count = 0
-        for i, chunk in enumerate(chunky(table_records, CHUNK_INSERT_ROWS)):
-            records, is_it_the_last_chunk = chunk
-            count += len(records)
-            log.info(
-                "Saving chunk {number} {is_last}".format(
-                    number=i, is_last="(last)" if is_it_the_last_chunk else ""
+            column_names = [column["id"] for column in headers]
+            table_records = list()
+            for line in table_data["lines"]:
+                record = dict()
+                for i, value in enumerate(line[1:]):
+                    record[column_names[i]] = value
+                table_records.append(record)
+            # log.debug(table_records[:3])
+            count = 0
+            for i, chunk in enumerate(chunky(table_records, CHUNK_INSERT_ROWS)):
+                records, is_it_the_last_chunk = chunk
+                count += len(records)
+                log.info(
+                    "Saving chunk {number} {is_last}".format(
+                        number=i, is_last="(last)" if is_it_the_last_chunk else ""
+                    )
                 )
-            )
-            send_resource_to_datastore(
-                csv_res["id"], headers, records, s, is_it_the_last_chunk
-            )
+                send_resource_to_datastore(
+                    csv_res["id"], headers, records, s, is_it_the_last_chunk
+                )
     if not errored:
         job_dict['status'] = 'complete'
     else:
@@ -205,36 +206,6 @@ def transform_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_
     else:
         existing_id=None
     res=file_upload(dataset_id=dataset_id, filename=filename, filedata=filedata,res_id=existing_id, format=format, authorization=CSVTOCSVW_TOKEN)
-    # prefix, suffix = filename.rsplit(".", 1)
-    # with tempfile.NamedTemporaryFile(
-    #     prefix=prefix, suffix="." + suffix
-    # ) as metadata_file:
-    #     metadata_file.write(filedata)
-    #     metadata_file.seek(0)
-    #     temp_file_name = metadata_file.name
-    #     upload = FlaskFileStorage(open(temp_file_name, "rb"), filename)
-    #     resource = dict(
-    #         package_id=dataset_id,
-    #         # url='dummy-value',
-    #         upload=upload,
-    #         name=filename,
-    #         format=format,
-    #     )
-    #     if not rdf_res:
-    #         log.debug("Writing new resource to - {}".format(dataset_id))
-    #         # local_ckan.action.resource_create(**resource)
-    #         rdf_res = get_action("resource_create")(
-    #             {"ignore_auth": True}, resource
-    #         )
-    #         log.debug(rdf_res)
-
-    #     else:
-    #         log.debug("Updating resource - {}".format(rdf_res["id"]))
-    #         # local_ckan.action.resource_patch(
-    #         #     id=res['id'],
-    #         #     **resource)
-    #         resource["id"] = rdf_res["id"]
-    #         get_action("resource_update")(context, resource)
         
     if not errored:
         job_dict['status'] = 'complete'
@@ -384,7 +355,7 @@ def file_upload(dataset_id, filename, filedata, res_id=None,format='', group=Non
         "format": format
     }
     if res_id:
-        url=expand_url(CKAN_URL,'/api/action/resource_update')
+        url=expand_url(CKAN_URL,'/api/3/action/resource_update')
         data['id']=res_id
         response=requests.post(url, headers=headers,json=data, files=files)
     else:

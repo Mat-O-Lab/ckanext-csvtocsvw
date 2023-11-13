@@ -215,57 +215,64 @@ class CSVWtoRDF:
         # self.metagraph=parse_graph(self.metadata_url,Graph(),format=metaformat)
         self.metagraph = Graph().parse(data=metadata, format=metaformat)
         # self.metagraph.serialize('test.ttl',format='turtle')
-        print(list(self.metagraph[: CSVW.url]))
-        self.meta_root, url = list(self.metagraph[: CSVW.url])[0]
-        # self.metagraph.serialize('metagraph.ttl')
-        # print('meta_root: '+self.meta_root)
-        # print('csv_url: '+url)
-        self.base_url = "{}/".format(
-            str(self.meta_root).rsplit("/download/upload")[0].rsplit("/", 1)[0]
-        )
-        parsed_url = urlparse(url)
-        if parsed_url.scheme in ["https", "http", "file"]:
-            self.csv_url = url
+        #print(list(self.metagraph[: CSVW.url]))
+        if len(list(self.metagraph[: CSVW.url]))==0:
+            # if no url then also no table to parse
+            self.meta_root=""
+            self.base_url=""
+            self.tables={}
+            return None
         else:
-            self.csv_url = self.base_url + url
-        self.graph = Graph(base=self.csv_url + "/")
-        self.filename = self.csv_url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-        self.tables = {
-            table_node: {} for file, table_node in self.metagraph[: CSVW.table :]
-        }
-        print("tables: {}".format(self.tables))
-        self.table_data = list()
-        if self.tables:
-            for key, data in self.tables.items():
-                dialect = next(self.metagraph[key : CSVW.dialect], None)
-                data["dialect"] = {k: v.value for (k, v) in self.metagraph[dialect:]}
-                # print(data['dialect'])
-                data["schema"] = next(self.metagraph[key : CSVW.tableSchema :], None)
-                data["columns"] = get_columns_from_schema(
-                    data["schema"], self.metagraph
-                )
-                # print(data['columns'])
-                # get table form csv_url
-                if data["schema"]:
-                    data["about_url"] = next(
-                        self.metagraph[data["schema"] : CSVW.aboutUrl], None
-                    )
+            self.meta_root, url = list(self.metagraph[: CSVW.url])[0]
+            # self.metagraph.serialize('metagraph.ttl')
+            # print('meta_root: '+self.meta_root)
+            # print('csv_url: '+url)
+            self.base_url = "{}/".format(
+                str(self.meta_root).rsplit("/download/upload")[0].rsplit("/", 1)[0]
+            )
+            parsed_url = urlparse(url)
+            if parsed_url.scheme in ["https", "http", "file"]:
+                self.csv_url = url
+            else:
+                self.csv_url = self.base_url + url
+            self.graph = Graph(base=self.csv_url + "/")
+            self.filename = self.csv_url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+            self.tables = {
+                table_node: {} for file, table_node in self.metagraph[: CSVW.table :]
+            }
+            print("tables: {}".format(self.tables))
+            self.table_data = list()
+            if self.tables:
+                for key, data in self.tables.items():
+                    dialect = next(self.metagraph[key : CSVW.dialect], None)
+                    data["dialect"] = {k: v.value for (k, v) in self.metagraph[dialect:]}
                     # print(data['dialect'])
-                    print(
-                        "skipRows: {} headerRowCount: {}".format(
-                            data["dialect"][CSVW.skipRows],
-                            data["dialect"][CSVW.headerRowCount],
+                    data["schema"] = next(self.metagraph[key : CSVW.tableSchema :], None)
+                    data["columns"] = get_columns_from_schema(
+                        data["schema"], self.metagraph
+                    )
+                    # print(data['columns'])
+                    # get table form csv_url
+                    if data["schema"]:
+                        data["about_url"] = next(
+                            self.metagraph[data["schema"] : CSVW.aboutUrl], None
                         )
-                    )
-                    data["lines"] = parse_csv_from_url_to_list(
-                        csv,
-                        delimiter=data["dialect"][CSVW.delimiter],
-                        skiprows=data["dialect"][CSVW.skipRows],
-                        # always on column less, index is created after reading
-                        columns=simple_columns(data["columns"]),
-                        num_header_rows=data["dialect"][CSVW.headerRowCount],
-                        encoding=data["dialect"][CSVW.encoding],
-                    )
+                        # print(data['dialect'])
+                        print(
+                            "skipRows: {} headerRowCount: {}".format(
+                                data["dialect"][CSVW.skipRows],
+                                data["dialect"][CSVW.headerRowCount],
+                            )
+                        )
+                        data["lines"] = parse_csv_from_url_to_list(
+                            csv,
+                            delimiter=data["dialect"][CSVW.delimiter],
+                            skiprows=data["dialect"][CSVW.skipRows],
+                            # always on column less, index is created after reading
+                            columns=simple_columns(data["columns"]),
+                            num_header_rows=data["dialect"][CSVW.headerRowCount],
+                            encoding=data["dialect"][CSVW.encoding],
+                        )
 
     def add_table_data(self, g: Graph) -> Graph:
         """_summary_

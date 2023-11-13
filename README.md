@@ -15,6 +15,13 @@ CKAN_CSVTOCSVW_URL=http://${CSVTOCSVW_HOST}:${CSVTOCSVW_APP_PORT}
 CSVTOCSVW_TOKEN=${CKAN_API_TOKEN}
 ```
 
+## Purpose
+Reacts to CSV files uploaded. DEFAULT_FORMATS are "csv; txt" It creates two to sites for each resource.
+- /annotate creates CSVW annotation file for a CSV in json-ld format named <csv_filename>-metadata.json, uploades table-1 to ckan datastore o u can explorer it with recline views
+- /transform utilizes CSVW metadata to transform the whole content of the csv file to rdf, output is <csv_filename>.ttl
+The plugins default behavior includes a trigger to csv file uploads, so it runs annotation automatically on upload.
+The transformation is a bonus feature and outputs standard tabular data as mentioned in the CSVW documentation of the W3C. It must be triggered manually.
+
 **TODO:** For example, you might want to mention here which versions of CKAN this
 extension works with.
 

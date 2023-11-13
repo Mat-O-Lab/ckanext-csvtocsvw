@@ -14,7 +14,9 @@ log = __import__("logging").getLogger(__name__)
 
 DEFAULT_FORMATS = [
     "csv",
-    "txt"
+    "txt",
+    "asc",
+    "tsv"
 ]
 
 
