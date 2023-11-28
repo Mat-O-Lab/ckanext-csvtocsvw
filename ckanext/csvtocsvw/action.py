@@ -21,7 +21,7 @@ def csvtocsvw_annotate(
     :type resource_id: string
     '''
 
-    #toolkit.check_access('csvwmapandtransform_transform_status', context, data_dict)
+    toolkit.check_access('csvwmapandtransform_transform_status', context, data_dict)
 
     if 'id' in data_dict:
         data_dict['resource_id'] = data_dict['id']
@@ -80,7 +80,7 @@ def csvtocsvw_annotate(
             else:
                 log.info('A pending task was found %s for this resource, so '
                          'skipping this duplicate task', existing_task['id'])
-                return False
+                return None
 
         task['id'] = existing_task['id']
     except toolkit.ObjectNotFound:
@@ -90,8 +90,7 @@ def csvtocsvw_annotate(
     task['value'] = value
     task['state'] = 'pending'
     toolkit.get_action('task_status_update')(
-        # {'session': model.meta.create_local_session(), 'ignore_auth': True},
-        {'ignore_auth': True},        
+        {'session': model.meta.create_local_session(), 'ignore_auth': True},
         task
     )
     return res

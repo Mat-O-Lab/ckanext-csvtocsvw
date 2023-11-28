@@ -11,6 +11,7 @@ from ckanext.csvtocsvw.annotate import annotate_csv_upload, csvw_to_rdf
 from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
 import datetime
 from urllib.parse import urlparse, urljoin, urlsplit
+from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 
 log = __import__("logging").getLogger(__name__)
@@ -105,7 +106,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
             upload = FlaskFileStorage(open(temp_file_name, "rb"), filename)
             resource = dict(
                 package_id=dataset_id,
-                # url='dummy-value',
+                url='dummy-value',
                 upload=upload,
                 name=filename,
                 format="json",
@@ -347,21 +348,30 @@ def file_upload(dataset_id, filename, filedata, res_id=None,format='', group=Non
     headers={}
     if authorization:
         headers['Authorization']=authorization
-    #files=[('upload', data_stream)]
-    files=[('upload', (filename, data_stream, mime_type))]
-    data={
-        "package_id": dataset_id,
-        "name": filename,
-        "format": format
-    }
     if res_id:
-        url=expand_url(CKAN_URL,'/api/3/action/resource_update')
-        data['id']=res_id
-        response=requests.post(url, headers=headers,json=data, files=files)
+        mp_encoder = MultipartEncoder(
+        fields={
+            'id': res_id,
+            'upload': (filename, data_stream, mime_type)
+        }
+        )
+    else:
+        mp_encoder = MultipartEncoder(
+        fields={
+            "package_id": dataset_id,
+            "name": filename,
+            "format": format,
+            "id": res_id,
+            "upload": (filename, data_stream, mime_type)
+        }
+        )
+    headers['Content-Type']= mp_encoder.content_type
+    if res_id:
+        url=expand_url(CKAN_URL,'/api/action/resource_patch')
     else:
         url=expand_url(CKAN_URL,'/api/action/resource_create')
-        response=requests.post(url, headers=headers,data=data, files=files)
-    
+    response=requests.post(url, headers=headers, data=mp_encoder)
+    #log.debug(response.request.headers,response.request.body)
     response.raise_for_status()
     r=response.json()
     log.debug('file {} uploaded at: {}'.format(filename,r))

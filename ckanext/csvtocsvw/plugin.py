@@ -53,12 +53,10 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     def after_resource_create(
             self, context: Context, resource_dict: dict[str, Any]):
-
         self._sumbit_toannotate(resource_dict)
 
     def after_update(
             self, context: Context, resource_dict: dict[str, Any]):
-
         self._sumbit_toannotate(resource_dict)
 
     
@@ -75,12 +73,11 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
         )
         log.debug(
                 u'Submitting resource {0} with format {1}'.format(resource_dict['id'],format) +
-                u' to csvwmapandtransform_transform'
+                u' to csvtocsvw_annotate'
             )
         
         if not submit:
             return
-            
         try:
             log.debug(
                 u'Submitting resource {0}'.format(resource_dict['id']) +
@@ -93,7 +90,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
             # of raising otherwise resource save will fail with 500
             log.critical(e)
             pass
-
+        return
 
     # ITemplateHelpers
 
