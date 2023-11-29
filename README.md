@@ -15,7 +15,7 @@ CKAN_CSVTOCSVW_URL=http://${CSVTOCSVW_HOST}:${CSVTOCSVW_APP_PORT}
 CSVTOCSVW_TOKEN=${CKAN_API_TOKEN}
 ```
 
-You can set the default formats to annotate by seeting the env variable CSVTOCSVW_FORMATS for example
+You can set the default formats to annotate by setting the env variable CSVTOCSVW_FORMATS for example
 ```bash
 CSVTOCSVW_FORMATS="csv txt asc"
 ```
