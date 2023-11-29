@@ -1,4 +1,4 @@
-import re
+import re, os
 
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
@@ -8,16 +8,18 @@ from ckan.lib.plugins import DefaultTranslation
 from ckan.types import Context
 from typing import Any
 
-from ckanext.csvtocsvw import action, helpers, views
+from ckanext.csvtocsvw import action, helpers, views, auth
 
 log = __import__("logging").getLogger(__name__)
 
-DEFAULT_FORMATS = [
-    "csv",
-    "txt",
-    "asc",
-    "tsv"
-]
+DEFAULT_FORMATS = os.environ.get("CSVTOCSVW_FORMATS","").lower().split()
+if not DEFAULT_FORMATS:
+    DEFAULT_FORMATS = [
+        "csv",
+        "txt",
+        "asc",
+        "tsv"
+    ]
 
 
 class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
@@ -28,7 +30,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IBlueprint)
-    # plugins.implements(plugins.IAuthFunctions)
+    plugins.implements(plugins.IAuthFunctions)
 
     # IConfigurer
 
@@ -107,3 +109,9 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     def get_blueprint(self):
         return views.get_blueprint()
+
+    # IAuthFunctions
+
+    def get_auth_functions(self):
+        return auth.get_auth_functions()
+

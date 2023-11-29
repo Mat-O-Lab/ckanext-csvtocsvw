@@ -15,6 +15,12 @@ CKAN_CSVTOCSVW_URL=http://${CSVTOCSVW_HOST}:${CSVTOCSVW_APP_PORT}
 CSVTOCSVW_TOKEN=${CKAN_API_TOKEN}
 ```
 
+You can set the default formats to annotate by seeting the env variable CSVTOCSVW_FORMATS for example
+```bash
+CSVTOCSVW_FORMATS="csv txt asc"
+```
+else it will react to the following  formats: "csv", "txt", "asc", "tsv"
+
 ## Purpose
 Reacts to CSV files uploaded. DEFAULT_FORMATS are "csv; txt" It creates two to sites for each resource.
 - /annotate creates CSVW annotation file for a CSV in json-ld format named <csv_filename>-metadata.json, uploades table-1 to ckan datastore o u can explorer it with recline views

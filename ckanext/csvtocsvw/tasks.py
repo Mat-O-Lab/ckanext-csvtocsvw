@@ -96,36 +96,12 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
         prefix, suffix = filename.rsplit(".", 1)
         if metadata_res:
             log.debug("Found existing resource {}".format(metadata_res))
-        # f = tempfile.NamedTemporaryFile(prefix=prefix,suffix='.'+suffix,delete=False)
-        with tempfile.NamedTemporaryFile(
-            prefix=prefix, suffix="." + suffix
-        ) as metadata_file:
-            metadata_file.write(meta_data.encode("utf-8"))
-            metadata_file.seek(0)
-            temp_file_name = metadata_file.name
-            upload = FlaskFileStorage(open(temp_file_name, "rb"), filename)
-            resource = dict(
-                package_id=dataset_id,
-                url='dummy-value',
-                upload=upload,
-                name=filename,
-                format="json",
-            )
-            if not metadata_res:
-                log.debug("Writing new resource to - {}".format(dataset_id))
-                # local_ckan.action.resource_create(**resource)
-                metadata_res = get_action("resource_create")(
-                    {"ignore_auth": True}, resource
-                )
-                log.debug(metadata_res)
-
-            else:
-                log.debug("Updating resource - {}".format(metadata_res["id"]))
-                # local_ckan.action.resource_patch(
-                #     id=res['id'],
-                #     **resource)
-                resource["id"] = metadata_res["id"]
-                get_action("resource_update")(context, resource)
+            existing_id=metadata_res['id']
+        else:
+            existing_id=None
+        
+        res=file_upload(dataset_id=dataset_id, filename=filename, filedata=meta_data.encode(),res_id=existing_id, format='json-ld', authorization=CSVTOCSVW_TOKEN)
+    
         # delete the datastore created from datapusher
         delete_datastore_resource(csv_res["id"], s)
         # use csvw metadata to readout the cvs
@@ -371,7 +347,6 @@ def file_upload(dataset_id, filename, filedata, res_id=None,format='', group=Non
     else:
         url=expand_url(CKAN_URL,'/api/action/resource_create')
     response=requests.post(url, headers=headers, data=mp_encoder)
-    #log.debug(response.request.headers,response.request.body)
     response.raise_for_status()
     r=response.json()
     log.debug('file {} uploaded at: {}'.format(filename,r))

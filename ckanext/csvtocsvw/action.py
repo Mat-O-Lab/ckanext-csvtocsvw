@@ -21,7 +21,7 @@ def csvtocsvw_annotate(
     :type resource_id: string
     '''
 
-    toolkit.check_access('csvwmapandtransform_transform_status', context, data_dict)
+    toolkit.check_access('csvtocsvw_annotate', context, data_dict)
 
     if 'id' in data_dict:
         data_dict['resource_id'] = data_dict['id']
@@ -138,7 +138,7 @@ def csvtocsvw_transform(
     :type resource_id: string
     '''
 
-    #toolkit.check_access('csvwmapandtransform_transform_status', context, data_dict)
+    toolkit.check_access('csvtocsvw_transform', context, data_dict)
 
     if 'id' in data_dict:
         data_dict['resource_id'] = data_dict['id']
