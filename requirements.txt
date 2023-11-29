@@ -5,3 +5,4 @@ pytest
 pytest-ckan
 rdflib
 pandas
+ckan
