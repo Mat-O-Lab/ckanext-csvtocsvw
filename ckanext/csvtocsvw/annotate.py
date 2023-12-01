@@ -26,11 +26,14 @@ def post_request(url, headers, data, files=None):
 def annotate_csv_uri(
     csv_url: str,
     encoding: str = "auto",
+    authorization: str = ""
 ):
     # curl -X 'POST' \ 'https://csvtocsvw.matolab.org/api/annotation' \ -H 'accept: application/json' \ -H 'Content-Type: application/json' \ -d '{ "data_url": "https://github.com/Mat-O-Lab/CSVToCSVW/raw/main/examples/example.csv", "separator": "auto", "header_separator": "auto", "encoding": "auto" }'
     url = csvtocsvw_url + "/api/annotate"
     data = {"data_url": csv_url, "encoding": encoding}
     headers = {"Content-type": "application/json", "Accept": "application/json"}
+    if authorization:
+        headers['Authorization']=authorization
     r = post_request(url, headers, data).json()
     filename = r["filename"]
     file = json.dumps(r["filedata"], indent=4).encode("utf-8")

@@ -7,7 +7,7 @@ import ckanapi.datapackage
 import requests
 from ckan import model
 from ckan.plugins.toolkit import get_action, asbool
-from ckanext.csvtocsvw.annotate import annotate_csv_upload, csvw_to_rdf
+from ckanext.csvtocsvw.annotate import annotate_csv_upload, csvw_to_rdf, annotate_csv_uri
 from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
 import datetime
 from urllib.parse import urlparse, urljoin, urlsplit
@@ -26,7 +26,6 @@ if not SSL_VERIFY:
 
 
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
-
 
 def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True):
     # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
@@ -54,41 +53,13 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
 
     csv_res = get_action("resource_show")(context, {"id": res_id})
     log.debug("Annotating: {}".format(csv_res["url"]))
-    # need to get it as string, casue url annotation doesnt work with private datasets
-    # filename,filedata=annotate_csv_uri(csv_res['url'])
-
+    
     s = requests.Session()
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
     csv_data = s.get(csv_res["url"]).content
-    prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
-    if not prefix:
-        prefix = "unnamed"
-    if not suffix:
-        suffix = "csv"
-    # log.debug(csv_data)
-    with tempfile.NamedTemporaryFile(prefix=prefix, suffix="." + suffix) as csv:
-        csv.write(csv_data)
-        csv.seek(0)
-        csv_name = csv.name
-        try:
-            result = annotate_csv_upload(csv.name)
-        except requests.exceptions.HTTPError as e:
-            log.error("CSVToCSVW Application returned error: {}".format(e))
-            errored=True
-            result=None
-    if result and "filedata" in result.keys():
-        meta_data = json.dumps(result["filedata"], indent=2)
-        log.debug("Got result with name: {}".format(result["filename"]))
-        # replace csv url and name
-        csv_name = csv_name.rsplit("/", 1)[-1]
-        dummy_url = "file:///src/{}/".format(csv_name)
-        filename = prefix + "-metadata.json"
-        log.debug("replacing url: {} with {}".format(dummy_url, csv_res["url"]))
-        log.debug("replacing id: {} with {}".format(csv_name, csv_res["name"]))
-        meta_data = meta_data.replace(dummy_url, csv_res["url"] + "/").replace(
-            csv_name, csv_res["name"]
-        )
-
+    #prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
+    filename,meta_data = annotate_csv_uri(csv_res["url"],authorization=CSVTOCSVW_TOKEN)
+    if meta_data:
         # Upload resource to CKAN as a new/updated resource
         # res=get_resource(res_id)
         metadata_res = resource_search(dataset_id, filename)
@@ -100,7 +71,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
         else:
             existing_id=None
         
-        res=file_upload(dataset_id=dataset_id, filename=filename, filedata=meta_data.encode(),res_id=existing_id, format='json-ld', authorization=CSVTOCSVW_TOKEN)
+        res=file_upload(dataset_id=dataset_id, filename=filename, filedata=meta_data,res_id=existing_id, format='json-ld', authorization=CSVTOCSVW_TOKEN)
     
         # delete the datastore created from datapusher
         delete_datastore_resource(csv_res["id"], s)
@@ -141,6 +112,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
                           api_key=CSVTOCSVW_TOKEN,
                           job_dict=job_dict)
     return 'error' if errored else None
+
 
 def transform_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True):
     # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
