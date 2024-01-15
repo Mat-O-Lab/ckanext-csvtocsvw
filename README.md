@@ -12,12 +12,12 @@ Also needed is a Api Token for an account with the right privaledges to make the
 
 ```bash
 CKAN_CSVTOCSVW_URL=http://${CSVTOCSVW_HOST}:${CSVTOCSVW_APP_PORT}
-CSVTOCSVW_TOKEN=${CKAN_API_TOKEN}
+CSVW_API_TOKEN=${CKAN_API_TOKEN}
 ```
 
 You can set the default formats to annotate by setting the env variable CSVTOCSVW_FORMATS for example
 ```bash
-CSVTOCSVW_FORMATS="csv txt asc"
+CKANINI__CSVTOCSVW__FORMATS="csv txt asc"
 ```
 else it will react to the following  formats: "csv", "txt", "asc", "tsv"
 

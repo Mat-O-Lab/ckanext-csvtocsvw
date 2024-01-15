@@ -12,7 +12,7 @@ from ckanext.csvtocsvw import action, helpers, views, auth
 
 log = __import__("logging").getLogger(__name__)
 
-DEFAULT_FORMATS = os.environ.get("CSVTOCSVW_FORMATS","").lower().split()
+DEFAULT_FORMATS = os.environ.get("CKANINI__CSVTOCSVW__FORMATS","").lower().split()
 if not DEFAULT_FORMATS:
     DEFAULT_FORMATS = [
         "csv",

@@ -17,10 +17,10 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 log = __import__("logging").getLogger(__name__)
 
 CKAN_URL = os.environ.get("CKAN_SITE_URL", "http://localhost:5000")
-CSVTOCSVW_TOKEN = os.environ.get("CSVTOCSVW_TOKEN", "")
+CSVTOCSVW_TOKEN = os.environ.get("CSVW_API_TOKEN", "")
 CHUNK_INSERT_ROWS = 250
 
-SSL_VERIFY = asbool(os.environ.get("CSVTOCSVW_SSL_VERIFY", True))
+SSL_VERIFY = asbool(os.environ.get("CKANINI__CSVTOCSVW__SSL_VERIFY", True))
 if not SSL_VERIFY:
     requests.packages.urllib3.disable_warnings()
 
@@ -53,6 +53,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
 
     csv_res = get_action("resource_show")(context, {"id": res_id})
     log.debug("Annotating: {}".format(csv_res["url"]))
+    log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
     
     s = requests.Session()
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
