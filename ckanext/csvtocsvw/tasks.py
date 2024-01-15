@@ -53,7 +53,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
 
     csv_res = get_action("resource_show")(context, {"id": res_id})
     log.debug("Annotating: {}".format(csv_res["url"]))
-    log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
+    #log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
     
     s = requests.Session()
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
