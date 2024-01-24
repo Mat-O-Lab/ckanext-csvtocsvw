@@ -9,7 +9,7 @@ from ckan import model
 from ckan.plugins.toolkit import get_action, asbool
 from ckanext.csvtocsvw.annotate import annotate_csv_upload, csvw_to_rdf, annotate_csv_uri
 from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
-import datetime
+import datetime, decimal
 from urllib.parse import urlparse, urljoin, urlsplit
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
