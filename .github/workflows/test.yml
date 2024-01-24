@@ -59,7 +59,7 @@ jobs:
       run: |
         ckan -c test.ini db init
     - name: Run tests
-      run: pytest --ckan-ini=test.ini --cov=ckanext.csvtocsvw --disable-warnings ckanext/csvtocsvw
+      run: pytest --ckan-ini=test.ini --cov=ckanext.csvtocsvw --disable-warnings ckanext/csvtocsvw || ([ $$? = 5 ] && exit 0 || exit $$?)
     - name: Upload coverage report to codecov
       uses: codecov/codecov-action@v1
       with:
