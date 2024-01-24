@@ -59,7 +59,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
     csv_data = s.get(csv_res["url"]).content
     #prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
-    filename,meta_data = annotate_csv_uri(csv_res["url"],authorization=CSVTOCSVW_TOKEN)
+    filename,meta_data, mime_type = annotate_csv_uri(csv_res["url"],authorization=CSVTOCSVW_TOKEN)
     if meta_data:
         # Upload resource to CKAN as a new/updated resource
         # res=get_resource(res_id)
@@ -72,7 +72,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
         else:
             existing_id=None
         
-        res=file_upload(dataset_id=dataset_id, filename=filename, filedata=meta_data,res_id=existing_id, format='json-ld', authorization=CSVTOCSVW_TOKEN)
+        res=file_upload(dataset_id=dataset_id, filename=filename, filedata=meta_data,res_id=existing_id, format=mime_type, authorization=CSVTOCSVW_TOKEN)
     
         # delete the datastore created from datapusher
         delete_datastore_resource(csv_res["id"], s)
@@ -147,7 +147,7 @@ def transform_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_
     format="turtle"
     metadata_res = resource_search(dataset_id, prefix+"-metadata.json")
     log.debug("Transforming {} with metedata {}".format(csv_res["url"],metadata_res['url']))
-    filename,filedata=csvw_to_rdf(metadata_res['url'],format=format,authorization=CSVTOCSVW_TOKEN)
+    filename,filedata,mime_type=csvw_to_rdf(metadata_res['url'],format=format,authorization=CSVTOCSVW_TOKEN)
     #upload result to ckan
     rdf_res = resource_search(dataset_id, filename)
     if rdf_res:
@@ -155,7 +155,7 @@ def transform_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_
         log.debug("Found existing resources {}".format(rdf_res))
     else:
         existing_id=None
-    res=file_upload(dataset_id=dataset_id, filename=filename, filedata=filedata,res_id=existing_id, format=format, authorization=CSVTOCSVW_TOKEN)
+    res=file_upload(dataset_id=dataset_id, filename=filename, filedata=filedata,res_id=existing_id, format=mime_type, authorization=CSVTOCSVW_TOKEN)
         
     if not errored:
         job_dict['status'] = 'complete'
