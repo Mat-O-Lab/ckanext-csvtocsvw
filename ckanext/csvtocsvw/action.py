@@ -9,6 +9,7 @@ import datetime
 from dateutil.parser import parse as parse_date
 from dateutil.parser import isoparse as parse_iso_date
 import json
+Import Re
 
 log = __import__("logging").getLogger(__name__)
 
