@@ -41,7 +41,7 @@ class AnnotateView(MethodView):
             toolkit.g.resource = resource
 
         except (toolkit.ObjectNotFound, toolkit.NotAuthorized):
-            base.abort(404, _('Resource not found'))
+            base.abort(404, 'Resource not found')
         status=None 
         try:
             task = toolkit.get_action('task_status_show')({}, { 'entity_id': resource['id'],'task_type': 'csvtocsvw', 'key': 'csvtocsvw_annotate'})
@@ -102,7 +102,7 @@ class TransformView(MethodView):
             toolkit.g.resource = resource
 
         except (toolkit.ObjectNotFound, toolkit.NotAuthorized):
-            base.abort(404, _('Resource not found'))
+            base.abort(404, 'Resource not found')
         status=None 
         try:
             task = toolkit.get_action('task_status_show')({}, { 'entity_id': resource['id'],'task_type': 'csvtocsvw', 'key': 'csvtocsvw_transform'})
