@@ -66,6 +66,8 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
         metadata_res = resource_search(dataset_id, filename)
         # log.debug(meta_data)
         prefix, suffix = filename.rsplit(".", 1)
+        if suffix=='json' and mime_type=="application/json+ld":
+            filename=prefix+".jsonld"
         if metadata_res:
             log.debug("Found existing resource {}".format(metadata_res))
             existing_id=metadata_res['id']
