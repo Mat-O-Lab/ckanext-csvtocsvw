@@ -7,6 +7,7 @@ from ckan.lib.plugins import DefaultTranslation
 
 from ckan.types import Context
 from typing import Any
+import mimetypes
 
 from ckanext.csvtocsvw import action, helpers, views, auth
 
@@ -38,6 +39,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
         toolkit.add_template_directory(config_, "templates")
         toolkit.add_public_directory(config_, "public")
         toolkit.add_resource("fanstatic", "csvtocsvw")
+        mimetypes.add_type('application/json+ld', '.jsonld')
 
 
     # IResourceUrlChange
