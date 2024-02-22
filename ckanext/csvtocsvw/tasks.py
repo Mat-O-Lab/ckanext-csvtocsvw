@@ -72,7 +72,7 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
         else:
             existing_id=None
         
-        res=file_upload(dataset_id=dataset_id, filename=filename, filedata=meta_data,res_id=existing_id, format=mime_type, authorization=CSVTOCSVW_TOKEN)
+        res=file_upload(dataset_id=dataset_id, filename=filename, filedata=meta_data,res_id=existing_id, format="json-ld", mime_type=mime_type, authorization=CSVTOCSVW_TOKEN)
     
         # delete the datastore created from datapusher
         delete_datastore_resource(csv_res["id"], s)
@@ -155,7 +155,7 @@ def transform_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_
         log.debug("Found existing resources {}".format(rdf_res))
     else:
         existing_id=None
-    res=file_upload(dataset_id=dataset_id, filename=filename, filedata=filedata,res_id=existing_id, format=mime_type, authorization=CSVTOCSVW_TOKEN)
+    res=file_upload(dataset_id=dataset_id, filename=filename, filedata=filedata,res_id=existing_id, format=mime_type, mime_type=mime_type, authorization=CSVTOCSVW_TOKEN)
         
     if not errored:
         job_dict['status'] = 'complete'
