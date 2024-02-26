@@ -13,14 +13,9 @@ from ckanext.csvtocsvw import action, helpers, views, auth
 
 log = __import__("logging").getLogger(__name__)
 
-DEFAULT_FORMATS = os.environ.get("CKANINI__CSVTOCSVW__FORMATS","").lower().split()
+DEFAULT_FORMATS = os.environ.get("CKANINI__CSVTOCSVW__FORMATS", "").lower().split()
 if not DEFAULT_FORMATS:
-    DEFAULT_FORMATS = [
-        "csv",
-        "txt",
-        "asc",
-        "tsv"
-    ]
+    DEFAULT_FORMATS = ["csv", "txt", "asc", "tsv"]
 
 
 class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
@@ -39,56 +34,50 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
         toolkit.add_template_directory(config_, "templates")
         toolkit.add_public_directory(config_, "public")
         toolkit.add_resource("fanstatic", "csvtocsvw")
-        mimetypes.add_type('application/json+ld', '.jsonld')
-
+        mimetypes.add_type("application/ld+json", ".jsonld")
 
     # IResourceUrlChange
 
     def notify(self, resource: model.Resource):
-        context: Context = {'ignore_auth': True}
-        resource_dict = toolkit.get_action(u'resource_show')(
-            context, {
-                u'id': resource.id,
-            }
+        context: Context = {"ignore_auth": True}
+        resource_dict = toolkit.get_action("resource_show")(
+            context,
+            {
+                "id": resource.id,
+            },
         )
         self._sumbit_toannotate(resource_dict)
 
     # IResourceController
 
-    def after_resource_create(
-            self, context: Context, resource_dict: dict[str, Any]):
+    def after_resource_create(self, context: Context, resource_dict: dict[str, Any]):
         self._sumbit_toannotate(resource_dict)
 
-    def after_update(
-            self, context: Context, resource_dict: dict[str, Any]):
+    def after_update(self, context: Context, resource_dict: dict[str, Any]):
         self._sumbit_toannotate(resource_dict)
 
-    
     def _sumbit_toannotate(self, resource_dict: dict[str, Any]):
-        context = {
-            u'model': model,
-            u'ignore_auth': True,
-            u'defer_commit': True
-        }
-        format=resource_dict.get('format',None)
-        submit = (
-            format
-            and format.lower() in DEFAULT_FORMATS
-        )
+        context = {"model": model, "ignore_auth": True, "defer_commit": True}
+        format = resource_dict.get("format", None)
+        submit = format and format.lower() in DEFAULT_FORMATS
         log.debug(
-                u'Submitting resource {0} with format {1}'.format(resource_dict['id'],format) +
-                u' to csvtocsvw_annotate'
+            "Submitting resource {0} with format {1}".format(
+                resource_dict["id"], format
             )
-        
+            + " to csvtocsvw_annotate"
+        )
+
         if not submit:
             return
         try:
             log.debug(
-                u'Submitting resource {0}'.format(resource_dict['id']) +
-                u' to csvtocsvw_annotate'
+                "Submitting resource {0}".format(resource_dict["id"])
+                + " to csvtocsvw_annotate"
             )
-            toolkit.get_action('csvtocsvw_annotate')(context,{'id': resource_dict['id']})
-             
+            toolkit.get_action("csvtocsvw_annotate")(
+                context, {"id": resource_dict["id"]}
+            )
+
         except toolkit.ValidationError as e:
             # If CSVTOCSVW is offline want to catch error instead
             # of raising otherwise resource save will fail with 500
@@ -106,7 +95,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def get_actions(self):
         actions = action.get_actions()
         return actions
-    
+
     # IBlueprint
 
     def get_blueprint(self):
@@ -116,4 +105,3 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     def get_auth_functions(self):
         return auth.get_auth_functions()
-

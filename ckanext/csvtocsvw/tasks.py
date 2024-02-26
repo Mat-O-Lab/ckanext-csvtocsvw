@@ -7,7 +7,11 @@ import ckanapi.datapackage
 import requests
 from ckan import model
 from ckan.plugins.toolkit import get_action, asbool
-from ckanext.csvtocsvw.annotate import annotate_csv_upload, csvw_to_rdf, annotate_csv_uri
+from ckanext.csvtocsvw.annotate import (
+    annotate_csv_upload,
+    csvw_to_rdf,
+    annotate_csv_uri,
+)
 from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
 import datetime, decimal
 from urllib.parse import urlparse, urljoin, urlsplit
@@ -27,61 +31,71 @@ if not SSL_VERIFY:
 
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
-def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True):
+
+def annotate_csv(
+    res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True
+):
     # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
     #         ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
-    context={
-        'session': model.meta.create_local_session(),
-        "ignore_auth": True
-        }
+    context = {"session": model.meta.create_local_session(), "ignore_auth": True}
     metadata = {
-            'ckan_url': CKAN_URL,
-            'resource_id': res_id,
-            'task_created': last_updated,
-            'original_url': res_url,
-            'task_key': "csvtocsvw_annotate"
-        }
-    job_info=dict()
-    job_dict = dict(metadata=metadata,
-                    status='running',
-                    job_info=job_info
-    )
+        "ckan_url": CKAN_URL,
+        "resource_id": res_id,
+        "task_created": last_updated,
+        "original_url": res_url,
+        "task_key": "csvtocsvw_annotate",
+    }
+    job_info = dict()
+    job_dict = dict(metadata=metadata, status="running", job_info=job_info)
     errored = False
-    callback_csvtocsvw_hook(callback_url,
-                          api_key=CSVTOCSVW_TOKEN,
-                          job_dict=job_dict)
+    callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
 
     csv_res = get_action("resource_show")(context, {"id": res_id})
     log.debug("Annotating: {}".format(csv_res["url"]))
-    #log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
-    
+    # log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
+
     s = requests.Session()
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
     csv_data = s.get(csv_res["url"]).content
-    #prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
-    filename,meta_data, mime_type = annotate_csv_uri(csv_res["url"],authorization=CSVTOCSVW_TOKEN)
+    # prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
+    filename, meta_data, mime_type = annotate_csv_uri(
+        csv_res["url"], authorization=CSVTOCSVW_TOKEN
+    )
     if meta_data:
         # Upload resource to CKAN as a new/updated resource
         # res=get_resource(res_id)
         metadata_res = resource_search(dataset_id, filename)
         # log.debug(meta_data)
         prefix, suffix = filename.rsplit(".", 1)
-        if suffix=='json' and "json+ld" in mime_type:
-            filename=prefix+".jsonld"
+        if suffix == "json" and "ld+json" in mime_type:
+            filename = prefix + ".jsonld"
+        log.debug(
+            "{}.{} {} is json-ld:{}".format(
+                prefix, suffix, mime_type, "ld+json" in mime_type
+            )
+        )
         if metadata_res:
             log.debug("Found existing resource {}".format(metadata_res))
-            existing_id=metadata_res['id']
+            existing_id = metadata_res["id"]
         else:
-            existing_id=None
-        
-        res=file_upload(dataset_id=dataset_id, filename=filename, filedata=meta_data,res_id=existing_id, format="json-ld", mime_type=mime_type, authorization=CSVTOCSVW_TOKEN)
-    
+            existing_id = None
+
+        res = file_upload(
+            dataset_id=dataset_id,
+            filename=filename,
+            filedata=meta_data,
+            res_id=existing_id,
+            format="json-ld",
+            mime_type=mime_type,
+            authorization=CSVTOCSVW_TOKEN,
+        )
+
         # delete the datastore created from datapusher
         delete_datastore_resource(csv_res["id"], s)
         # use csvw metadata to readout the cvs
         parse = CSVWtoRDF(meta_data, csv_data)
         # pick table one, can only put one table to datastore
-        if len(parse.tables)>0:
+        if len(parse.tables) > 0:
             table_key = next(iter(parse.tables))
             table_data = parse.tables[table_key]
             headers = simple_columns(table_data["columns"])
@@ -108,65 +122,67 @@ def annotate_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_i
                     csv_res["id"], headers, records, s, is_it_the_last_chunk
                 )
     if not errored:
-        job_dict['status'] = 'complete'
+        job_dict["status"] = "complete"
     else:
-        job_dict['status'] = 'errored'
-    callback_csvtocsvw_hook(callback_url,
-                          api_key=CSVTOCSVW_TOKEN,
-                          job_dict=job_dict)
-    return 'error' if errored else None
+        job_dict["status"] = "errored"
+    callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
+    return "error" if errored else None
 
 
-def transform_csv(res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True):
+def transform_csv(
+    res_url, res_id, dataset_id, callback_url, last_updated, skip_if_no_changes=True
+):
     # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
     #         ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
-    context={
-        'session': model.meta.create_local_session(),
-        "ignore_auth": True
-        }
+    context = {"session": model.meta.create_local_session(), "ignore_auth": True}
     metadata = {
-            'ckan_url': CKAN_URL,
-            'resource_id': res_id,
-            'task_created': last_updated,
-            'original_url': res_url,
-            'task_key': "csvtocsvw_transform"
-        }
-    job_info=dict()
-    job_dict = dict(metadata=metadata,
-                    status='running',
-                    job_info=job_info
-    )
+        "ckan_url": CKAN_URL,
+        "resource_id": res_id,
+        "task_created": last_updated,
+        "original_url": res_url,
+        "task_key": "csvtocsvw_transform",
+    }
+    job_info = dict()
+    job_dict = dict(metadata=metadata, status="running", job_info=job_info)
     errored = False
-    callback_csvtocsvw_hook(callback_url,
-                          api_key=CSVTOCSVW_TOKEN,
-                          job_dict=job_dict)
+    callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
     csv_res = get_action("resource_show")(context, {"id": res_id})
     # need to get it as string, casue url annotation doesnt work with private datasets
     # filename,filedata=annotate_csv_uri(csv_res['url'])
     prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
     if not prefix:
         prefix = "unnamed"
-    format="turtle"
-    metadata_res = resource_search(dataset_id, prefix+"-metadata.json")
-    log.debug("Transforming {} with metedata {}".format(csv_res["url"],metadata_res['url']))
-    filename,filedata,mime_type=csvw_to_rdf(metadata_res['url'],format=format,authorization=CSVTOCSVW_TOKEN)
-    #upload result to ckan
+    format = "turtle"
+    metadata_res = resource_search(dataset_id, prefix + "-metadata.json")
+    log.debug(
+        "Transforming {} with metedata {}".format(csv_res["url"], metadata_res["url"])
+    )
+    filename, filedata, mime_type = csvw_to_rdf(
+        metadata_res["url"], format=format, authorization=CSVTOCSVW_TOKEN
+    )
+    # upload result to ckan
     rdf_res = resource_search(dataset_id, filename)
     if rdf_res:
-        existing_id=rdf_res['id']
+        existing_id = rdf_res["id"]
         log.debug("Found existing resources {}".format(rdf_res))
     else:
-        existing_id=None
-    res=file_upload(dataset_id=dataset_id, filename=filename, filedata=filedata,res_id=existing_id, format=mime_type, mime_type=mime_type, authorization=CSVTOCSVW_TOKEN)
-        
+        existing_id = None
+    res = file_upload(
+        dataset_id=dataset_id,
+        filename=filename,
+        filedata=filedata,
+        res_id=existing_id,
+        format=mime_type,
+        mime_type=mime_type,
+        authorization=CSVTOCSVW_TOKEN,
+    )
+
     if not errored:
-        job_dict['status'] = 'complete'
+        job_dict["status"] = "complete"
     else:
-        job_dict['status'] = 'errored'
-    callback_csvtocsvw_hook(callback_url,
-                          api_key=CSVTOCSVW_TOKEN,
-                          job_dict=job_dict)
-    return 'error' if errored else None
+        job_dict["status"] = "errored"
+    callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
+    return "error" if errored else None
 
 
 def get_url(action):
@@ -269,16 +285,17 @@ def resource_search(dataset_id, res_name):
             return res
     return None
 
+
 def callback_csvtocsvw_hook(result_url, api_key, job_dict):
-    '''Tells CKAN about the result of the csvtocsvw (i.e. calls the callback
+    """Tells CKAN about the result of the csvtocsvw (i.e. calls the callback
     function 'csvtocsvw_hook'). Usually called by the csvtocsvw queue job.
-    '''
-    headers = {'Content-Type': 'application/json'}
+    """
+    headers = {"Content-Type": "application/json"}
     if api_key:
-        if ':' in api_key:
-            header, key = api_key.split(':')
+        if ":" in api_key:
+            header, key = api_key.split(":")
         else:
-            header, key = 'Authorization', api_key
+            header, key = "Authorization", api_key
         headers[header] = key
 
     try:
@@ -286,52 +303,62 @@ def callback_csvtocsvw_hook(result_url, api_key, job_dict):
             result_url,
             data=json.dumps(job_dict, cls=DatetimeJsonEncoder),
             verify=SSL_VERIFY,
-            headers=headers)
+            headers=headers,
+        )
     except requests.ConnectionError:
         return False
 
     return result.status_code == requests.codes.ok
 
+
 from io import BytesIO
 
-def file_upload(dataset_id, filename, filedata, res_id=None,format='', group=None, mime_type='text/csv', authorization=None):
-    data_stream=BytesIO(filedata)
-    headers={}
+
+def file_upload(
+    dataset_id,
+    filename,
+    filedata,
+    res_id=None,
+    format="",
+    group=None,
+    mime_type="text/csv",
+    authorization=None,
+):
+    data_stream = BytesIO(filedata)
+    headers = {}
     if authorization:
-        headers['Authorization']=authorization
+        headers["Authorization"] = authorization
     if res_id:
         mp_encoder = MultipartEncoder(
-        fields={
-            'id': res_id,
-            'upload': (filename, data_stream, mime_type)
-        }
+            fields={"id": res_id, "upload": (filename, data_stream, mime_type)}
         )
     else:
         mp_encoder = MultipartEncoder(
-        fields={
-            "package_id": dataset_id,
-            "name": filename,
-            "format": format,
-            "id": res_id,
-            "upload": (filename, data_stream, mime_type)
-        }
+            fields={
+                "package_id": dataset_id,
+                "name": filename,
+                "format": format,
+                "id": res_id,
+                "upload": (filename, data_stream, mime_type),
+            }
         )
-    headers['Content-Type']= mp_encoder.content_type
+    headers["Content-Type"] = mp_encoder.content_type
     if res_id:
-        url=expand_url(CKAN_URL,'/api/action/resource_patch')
+        url = expand_url(CKAN_URL, "/api/action/resource_patch")
     else:
-        url=expand_url(CKAN_URL,'/api/action/resource_create')
-    response=requests.post(url, headers=headers, data=mp_encoder)
+        url = expand_url(CKAN_URL, "/api/action/resource_create")
+    response = requests.post(url, headers=headers, data=mp_encoder)
     response.raise_for_status()
-    r=response.json()
-    log.debug('file {} uploaded at: {}'.format(filename,r))
+    r = response.json()
+    log.debug("file {} uploaded at: {}".format(filename, r))
     return r
+
 
 def expand_url(base, url):
     p_url = urlparse(url)
-    if not p_url.scheme in ['https', 'http']:
-        #relative url?
-        p_url=urljoin(base, p_url.path)
+    if not p_url.scheme in ["https", "http"]:
+        # relative url?
+        p_url = urljoin(base, p_url.path)
         return p_url
     else:
         return p_url.path.geturl()
@@ -342,4 +369,3 @@ class DatetimeJsonEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
             return obj.isoformat()
-
