@@ -13,53 +13,55 @@ import re
 
 log = __import__("logging").getLogger(__name__)
 
-def csvtocsvw_annotate(
-    context: Context, data_dict: dict[str, Any]) -> dict[str, Any]:
-    ''' Start a the transformation job for a certain resource.
+
+def csvtocsvw_annotate(context: Context, data_dict: dict[str, Any]) -> dict[str, Any]:
+    """Start a the transformation job for a certain resource.
 
     :param resource_id: The resource id of the resource that you want the
         datapusher status for.
     :type resource_id: string
-    '''
+    """
 
-    toolkit.check_access('csvtocsvw_annotate', context, data_dict)
+    if "id" in data_dict:
+        data_dict["resource_id"] = data_dict["id"]
+    res_id = toolkit.get_or_bust(data_dict, "resource_id")
+    resource = toolkit.get_action("resource_show")(
+        {"ignore_auth": True}, {"id": res_id}
+    )
+    data_dict["resource"] = resource
+    toolkit.check_access("csvtocsvw_annotate", context, data_dict)
 
-    if 'id' in data_dict:
-        data_dict['resource_id'] = data_dict['id']
-    res_id = toolkit.get_or_bust(data_dict, 'resource_id')
-    resource = toolkit.get_action(u'resource_show'
-                                          )({"ignore_auth": True}, {
-                                              u'id': res_id
-                                          })
     task = {
-        'entity_id': res_id,
-        'entity_type': 'resource',
-        'task_type': 'csvtocsvw',
-        'last_updated': str(datetime.datetime.utcnow()),
-        'state': 'submitting',
-        'key': 'csvtocsvw_annotate',
-        'value': '{}',
-        'error': '{}',
-        'detail': "",
+        "entity_id": res_id,
+        "entity_type": "resource",
+        "task_type": "csvtocsvw",
+        "last_updated": str(datetime.datetime.utcnow()),
+        "state": "submitting",
+        "key": "csvtocsvw_annotate",
+        "value": "{}",
+        "error": "{}",
+        "detail": "",
     }
-    log.debug('annotation_started for: {}'.format(resource))
+    log.debug("annotation_started for: {}".format(resource))
     try:
-        existing_task = toolkit.get_action('task_status_show')({}, {
-            'entity_id': res_id,
-            'task_type': 'csvtocsvw',
-            'key': 'csvtocsvw_annotate'
-        })
+        existing_task = toolkit.get_action("task_status_show")(
+            {},
+            {
+                "entity_id": res_id,
+                "task_type": "csvtocsvw",
+                "key": "csvtocsvw_annotate",
+            },
+        )
         assume_task_stale_after = datetime.timedelta(seconds=3600)
-        assume_task_stillborn_after = \
-            datetime.timedelta(seconds=int(5))
-        if existing_task.get('state') == 'pending':
+        assume_task_stillborn_after = datetime.timedelta(seconds=int(5))
+        if existing_task.get("state") == "pending":
             # queued_res_ids = [
             #     re.search(r"'resource_id': u?'([^']+)'",
             #               job.description).groups()[0]
             #     for job in get_queue().get_jobs()
             #     if 'xloader_to_datastore' in str(job)  # filter out test_job etc
             # ]
-            updated = parse_iso_date(existing_task['last_updated'])
+            updated = parse_iso_date(existing_task["last_updated"])
             time_since_last_updated = datetime.datetime.utcnow() - updated
             # if (res_id not in queued_res_ids
             #         and time_since_last_updated > assume_task_stillborn_after):
@@ -76,27 +78,41 @@ def csvtocsvw_annotate(
                 # it's been a while since the job was last updated - it's more
                 # likely something went wrong with it and the state wasn't
                 # updated than its still in progress. Let it be restarted.
-                log.info('A pending task was found %r, but it is only %s hours'
-                         ' old', existing_task['id'], time_since_last_updated)
+                log.info(
+                    "A pending task was found %r, but it is only %s hours" " old",
+                    existing_task["id"],
+                    time_since_last_updated,
+                )
             else:
-                log.info('A pending task was found %s for this resource, so '
-                         'skipping this duplicate task', existing_task['id'])
+                log.info(
+                    "A pending task was found %s for this resource, so "
+                    "skipping this duplicate task",
+                    existing_task["id"],
+                )
                 return None
 
-        task['id'] = existing_task['id']
+        task["id"] = existing_task["id"]
     except toolkit.ObjectNotFound:
         pass
-    res=enqueue_csvw_annotate(resource['id'], resource['name'], resource['url'], resource['package_id'], task['last_updated'])
-    value = json.dumps({'job_id': res.id})
-    task['value'] = value
-    task['state'] = 'pending'
-    toolkit.get_action('task_status_update')(
-        {'session': model.meta.create_local_session(), 'ignore_auth': True},
-        task
+    res = enqueue_csvw_annotate(
+        resource["id"],
+        resource["name"],
+        resource["url"],
+        resource["package_id"],
+        task["last_updated"],
+    )
+    value = json.dumps({"job_id": res.id})
+    task["value"] = value
+    task["state"] = "pending"
+    toolkit.get_action("task_status_update")(
+        {"session": model.meta.create_local_session(), "ignore_auth": True}, task
     )
     return res
 
-def enqueue_csvw_annotate(res_id, res_name, res_url, dataset_id, task_last_updated,operation="changed"):
+
+def enqueue_csvw_annotate(
+    res_id, res_name, res_url, dataset_id, task_last_updated, operation="changed"
+):
     # skip task if the dataset is already queued
     queue = DEFAULT_QUEUE_NAME
     jobs = toolkit.get_action("job_list")({"ignore_auth": True}, {"queues": [queue]})
@@ -117,12 +133,9 @@ def enqueue_csvw_annotate(res_id, res_name, res_url, dataset_id, task_last_updat
     # add this dataset to the queue
     log.debug("Queuing job csvw_annotate: {}".format(res_name))
     callback_url = toolkit.url_for(
-        "api.action",
-        ver=3,
-        logic_function="csvtocsvw_hook",
-        qualified=True
+        "api.action", ver=3, logic_function="csvtocsvw_hook", qualified=True
     )
-    job=toolkit.enqueue_job(
+    job = toolkit.enqueue_job(
         annotate_csv,
         [res_url, res_id, dataset_id, callback_url, task_last_updated],
         title='csvtocsvw  {} "{}" {}'.format(operation, res_name, res_url),
@@ -130,53 +143,55 @@ def enqueue_csvw_annotate(res_id, res_name, res_url, dataset_id, task_last_updat
     )
     return job
 
-def csvtocsvw_transform(
-    context: Context, data_dict: dict[str, Any]) -> dict[str, Any]:
-    ''' Start a the transformation job for a certain resource.
+
+def csvtocsvw_transform(context: Context, data_dict: dict[str, Any]) -> dict[str, Any]:
+    """Start a the transformation job for a certain resource.
 
     :param resource_id: The resource id of the resource that you want the
         datapusher status for.
     :type resource_id: string
-    '''
+    """
 
-    toolkit.check_access('csvtocsvw_transform', context, data_dict)
+    if "id" in data_dict:
+        data_dict["resource_id"] = data_dict["id"]
+    res_id = toolkit.get_or_bust(data_dict, "resource_id")
+    resource = toolkit.get_action("resource_show")(
+        {"ignore_auth": True}, {"id": res_id}
+    )
+    data_dict["resource"] = resource
+    toolkit.check_access("csvtocsvw_transform", context, data_dict)
 
-    if 'id' in data_dict:
-        data_dict['resource_id'] = data_dict['id']
-    res_id = toolkit.get_or_bust(data_dict, 'resource_id')
-    resource = toolkit.get_action(u'resource_show'
-                                          )({"ignore_auth": True}, {
-                                              u'id': res_id
-                                          })
     task = {
-        'entity_id': res_id,
-        'entity_type': 'resource',
-        'task_type': 'csvtocsvw',
-        'last_updated': str(datetime.datetime.utcnow()),
-        'state': 'submitting',
-        'key': 'csvtocsvw_transform',
-        'value': '{}',
-        'error': '{}',
-        'detail': "",
+        "entity_id": res_id,
+        "entity_type": "resource",
+        "task_type": "csvtocsvw",
+        "last_updated": str(datetime.datetime.utcnow()),
+        "state": "submitting",
+        "key": "csvtocsvw_transform",
+        "value": "{}",
+        "error": "{}",
+        "detail": "",
     }
-    log.debug('transform_started for: {}'.format(resource))
+    log.debug("transform_started for: {}".format(resource))
     try:
-        existing_task = toolkit.get_action('task_status_show')({}, {
-            'entity_id': res_id,
-            'task_type': 'csvtocsvw',
-            'key': 'csvtocsvw_transform'
-        })
+        existing_task = toolkit.get_action("task_status_show")(
+            {},
+            {
+                "entity_id": res_id,
+                "task_type": "csvtocsvw",
+                "key": "csvtocsvw_transform",
+            },
+        )
         assume_task_stale_after = datetime.timedelta(seconds=3600)
-        assume_task_stillborn_after = \
-            datetime.timedelta(seconds=int(5))
-        if existing_task.get('state') == 'pending':
+        assume_task_stillborn_after = datetime.timedelta(seconds=int(5))
+        if existing_task.get("state") == "pending":
             # queued_res_ids = [
             #     re.search(r"'resource_id': u?'([^']+)'",
             #               job.description).groups()[0]
             #     for job in get_queue().get_jobs()
             #     if 'xloader_to_datastore' in str(job)  # filter out test_job etc
             # ]
-            updated = parse_iso_date(existing_task['last_updated'])
+            updated = parse_iso_date(existing_task["last_updated"])
             time_since_last_updated = datetime.datetime.utcnow() - updated
             # if (res_id not in queued_res_ids
             #         and time_since_last_updated > assume_task_stillborn_after):
@@ -193,28 +208,43 @@ def csvtocsvw_transform(
                 # it's been a while since the job was last updated - it's more
                 # likely something went wrong with it and the state wasn't
                 # updated than its still in progress. Let it be restarted.
-                log.info('A pending task was found %r, but it is only %s hours'
-                         ' old', existing_task['id'], time_since_last_updated)
+                log.info(
+                    "A pending task was found %r, but it is only %s hours" " old",
+                    existing_task["id"],
+                    time_since_last_updated,
+                )
             else:
-                log.info('A pending task was found %s for this resource, so '
-                         'skipping this duplicate task', existing_task['id'])
+                log.info(
+                    "A pending task was found %s for this resource, so "
+                    "skipping this duplicate task",
+                    existing_task["id"],
+                )
                 return False
 
-        task['id'] = existing_task['id']
+        task["id"] = existing_task["id"]
     except toolkit.ObjectNotFound:
         pass
-    res=enqueue_csvw_transform(resource['id'], resource['name'], resource['url'], resource['package_id'], task['last_updated'])
-    value = json.dumps({'job_id': res.id})
-    task['value'] = value
-    task['state'] = 'pending'
-    toolkit.get_action('task_status_update')(
+    res = enqueue_csvw_transform(
+        resource["id"],
+        resource["name"],
+        resource["url"],
+        resource["package_id"],
+        task["last_updated"],
+    )
+    value = json.dumps({"job_id": res.id})
+    task["value"] = value
+    task["state"] = "pending"
+    toolkit.get_action("task_status_update")(
         # {'session': model.meta.create_local_session(), 'ignore_auth': True},
-        {'ignore_auth': True},        
-        task
+        {"ignore_auth": True},
+        task,
     )
     return res
 
-def enqueue_csvw_transform(res_id, res_name, res_url, dataset_id, task_last_updated,operation="changed"):
+
+def enqueue_csvw_transform(
+    res_id, res_name, res_url, dataset_id, task_last_updated, operation="changed"
+):
     # skip task if the dataset is already queued
     queue = DEFAULT_QUEUE_NAME
     jobs = toolkit.get_action("job_list")({"ignore_auth": True}, {"queues": [queue]})
@@ -235,12 +265,9 @@ def enqueue_csvw_transform(res_id, res_name, res_url, dataset_id, task_last_upda
     # add this dataset to the queue
     log.debug("Queuing job csvw_transform: {}".format(res_name))
     callback_url = toolkit.url_for(
-        "api.action",
-        ver=3,
-        logic_function="csvtocsvw_hook",
-        qualified=True
+        "api.action", ver=3, logic_function="csvtocsvw_hook", qualified=True
     )
-    job=toolkit.enqueue_job(
+    job = toolkit.enqueue_job(
         transform_csv,
         [res_url, res_id, dataset_id, callback_url, task_last_updated],
         title='csvtocsvw  {} "{}" {}'.format(operation, res_name, res_url),
@@ -250,7 +277,7 @@ def enqueue_csvw_transform(res_id, res_name, res_url, dataset_id, task_last_upda
 
 
 def csvtocsvw_hook(context, data_dict):
-    ''' Update csvtocsvw task. This action is typically called by ckanext-csvtocsvw
+    """Update csvtocsvw task. This action is typically called by ckanext-csvtocsvw
     whenever the status of a job changes.
 
     :param metadata: metadata provided when submitting job. key-value pairs.
@@ -278,73 +305,85 @@ def csvtocsvw_hook(context, data_dict):
         :param finished_timestamp: Time the job finished
         :type finished_timestamp: timestamp
 
-    '''
-    log.debug('callback got {}'.format(data_dict))
-    metadata, status= toolkit.get_or_bust(data_dict, ['metadata', 'status'])
+    """
+    log.debug("callback got {}".format(data_dict))
+    metadata, status = toolkit.get_or_bust(data_dict, ["metadata", "status"])
 
-    res_id = toolkit.get_or_bust(metadata, 'resource_id')
+    res_id = toolkit.get_or_bust(metadata, "resource_id")
 
     # Pass metadata, not data_dict, as it contains the resource id needed
     # on the auth checks
-    #toolkit.check_access('xloader_submit', context, metadata)
+    # toolkit.check_access('xloader_submit', context, metadata)
 
-    task = toolkit.get_action('task_status_show')(context, {
-        'entity_id': res_id,
-        'task_type': 'csvtocsvw',
-        'key': metadata['task_key']
-    })
+    task = toolkit.get_action("task_status_show")(
+        context,
+        {"entity_id": res_id, "task_type": "csvtocsvw", "key": metadata["task_key"]},
+    )
 
-    task['state'] = status
-    task['last_updated'] = str(datetime.datetime.utcnow())
-    task['error'] = data_dict.get('error')
+    task["state"] = status
+    task["last_updated"] = str(datetime.datetime.utcnow())
+    task["error"] = data_dict.get("error")
     resubmit = False
 
-    if status in ('complete'):
-        log.debug('callback job complete {}'.format(task))
-    
+    if status in ("complete"):
+        log.debug("callback job complete {}".format(task))
+
         # Create default views for resource if necessary (only the ones that
         # require data to be in the DataStore)
-        resource_dict = toolkit.get_action('resource_show')(
-            context, {'id': res_id})
+        resource_dict = toolkit.get_action("resource_show")(context, {"id": res_id})
 
-        dataset_dict = toolkit.get_action('package_show')(
-            context, {'id': resource_dict['package_id']})
+        dataset_dict = toolkit.get_action("package_show")(
+            context, {"id": resource_dict["package_id"]}
+        )
 
-     
         # Check if the uploaded file has been modified in the meantime
-        if (resource_dict.get('last_modified')
-                and metadata.get('task_created')):
+        if resource_dict.get("last_modified") and metadata.get("task_created"):
             try:
-                last_modified_datetime = parse_date(
-                    resource_dict['last_modified'])
-                task_created_datetime = parse_date(metadata['task_created'])
+                last_modified_datetime = parse_date(resource_dict["last_modified"])
+                task_created_datetime = parse_date(metadata["task_created"])
                 if last_modified_datetime > task_created_datetime:
-                    log.debug('Uploaded file more recent: %s > %s',
-                              last_modified_datetime, task_created_datetime)
+                    log.debug(
+                        "Uploaded file more recent: %s > %s",
+                        last_modified_datetime,
+                        task_created_datetime,
+                    )
                     resubmit = True
             except ValueError:
                 pass
         # Check if the URL of the file has been modified in the meantime
-        elif (resource_dict.get('url')
-              and metadata.get('original_url')
-              and resource_dict['url'] != metadata['original_url']):
-            log.debug('URLs are different: %s != %s',
-                      resource_dict['url'], metadata['original_url'])
+        elif (
+            resource_dict.get("url")
+            and metadata.get("original_url")
+            and resource_dict["url"] != metadata["original_url"]
+        ):
+            log.debug(
+                "URLs are different: %s != %s",
+                resource_dict["url"],
+                metadata["original_url"],
+            )
             resubmit = True
 
-    context['ignore_auth'] = True
-    toolkit.get_action('task_status_update')(context, task)
+    context["ignore_auth"] = True
+    toolkit.get_action("task_status_update")(context, task)
+
+    # create default views
+    # logic.get_action('resource_create_default_resource_views')(
+    #         context,
+    #         {
+    #             'resource': resource_dict,
+    #             'package': dataset_dict,
+    #             'create_datastore_views': True,
+    #         })
 
     if resubmit:
-        log.debug('Resource %s has been modified, '
-                  'resubmitting to csvtocsvw', res_id)
-        toolkit.get_action('csvtocsvwm_transform')(
-            context, {'resource_id': res_id})
-        
+        log.debug("Resource %s has been modified, " "resubmitting to csvtocsvw", res_id)
+        toolkit.get_action("csvtocsvwm_transform")(context, {"resource_id": res_id})
+
+
 def get_actions():
-    actions={
-        'csvtocsvw_annotate': csvtocsvw_annotate,
-        'csvtocsvw_transform': csvtocsvw_transform,
-        'csvtocsvw_hook': csvtocsvw_hook
+    actions = {
+        "csvtocsvw_annotate": csvtocsvw_annotate,
+        "csvtocsvw_transform": csvtocsvw_transform,
+        "csvtocsvw_hook": csvtocsvw_hook,
     }
     return actions
