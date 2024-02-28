@@ -153,9 +153,9 @@ def transform_csv(
     if not prefix:
         prefix = "unnamed"
     format = "turtle"
-    metadata_res = resource_search(dataset_id, prefix + "-metadata.json")
+    metadata_res = resource_search(dataset_id, prefix + "-metadata.jsonld")
     log.debug(
-        "Transforming {} with metedata {}".format(csv_res["url"], metadata_res["url"])
+        "Transforming {} with metadata {}".format(csv_res["url"], metadata_res["url"])
     )
     filename, filedata, mime_type = csvw_to_rdf(
         metadata_res["url"], format=format, authorization=CSVTOCSVW_TOKEN
