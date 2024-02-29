@@ -335,6 +335,15 @@ def csvtocsvw_hook(context, data_dict):
         dataset_dict = toolkit.get_action("package_show")(
             context, {"id": resource_dict["package_id"]}
         )
+        # create defaut views
+        toolkit.get_action("resource_create_default_resource_views")(
+            context,
+            {
+                "resource": resource_dict,
+                "package": dataset_dict,
+                "create_datastore_views": True,
+            },
+        )
 
         # Check if the uploaded file has been modified in the meantime
         if resource_dict.get("last_modified") and metadata.get("task_created"):
