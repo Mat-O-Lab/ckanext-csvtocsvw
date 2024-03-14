@@ -1,7 +1,14 @@
 import ckan.plugins as p
 from ckan import model
 import ckan.plugins.toolkit as toolkit
-from ckan.types import Context
+
+if toolkit.check_ckan_version("2.10"):
+    from ckan.types import Context
+else:
+
+    class Context(dict):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
 from ckan.lib.jobs import DEFAULT_QUEUE_NAME
 from typing import Any
 from ckanext.csvtocsvw.tasks import annotate_csv, transform_csv
