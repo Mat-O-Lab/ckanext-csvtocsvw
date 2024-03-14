@@ -1,4 +1,4 @@
-[![Tests](https://github.com/Mat-O-Lab/ckanext-csvtocsvw/workflows/Tests/badge.svg?branch=main)](https://github.com/Mat-O-Lab/ckanext-csvtocsvw/actions)
+[![Tests](https://github.com/Mat-O-Lab/ckanext-csvtocsvw/actions/workflows/test.yml/badge.svg)](https://github.com/Mat-O-Lab/ckanext-csvtocsvw/actions/workflows/test.yml)
 
 # ckanext-csvtocsvw
 
