@@ -348,7 +348,7 @@ def file_upload(
         url = expand_url(CKAN_URL, "/api/action/resource_patch")
     else:
         url = expand_url(CKAN_URL, "/api/action/resource_create")
-    response = requests.post(url, headers=headers, data=mp_encoder)
+    response = requests.post(url, headers=headers, data=mp_encoder,verify=SSL_VERIFY)
     response.raise_for_status()
     r = response.json()
     log.debug("file {} uploaded at: {}".format(filename, r))
