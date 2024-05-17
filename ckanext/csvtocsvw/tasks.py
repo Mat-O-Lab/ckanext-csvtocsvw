@@ -55,6 +55,7 @@ def annotate_csv(
     # log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
 
     s = requests.Session()
+    s.verify=SSL_VERIFY
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
     csv_data = s.get(csv_res["url"]).content
     # prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
