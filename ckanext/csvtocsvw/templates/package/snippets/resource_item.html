@@ -1,30 +1,23 @@
 {% ckan_extends %}
 
-{% block resource_item_explore %}
-  {{ super() }}
-  {% if not url_is_edit and h.csvtocsvw_show_tools(res) %}
-  <div class="dropdown btn-group">
-    <a href="#" class="btn btn-primary dropdown-toggle" type="button" id="dropdownMapTransform" data-bs-toggle="dropdown" aria-expanded="false">
-      <i class="fa fa-share"></i>
-      {{ _('CSVW') }}
-      <span class="caret"></span> 
-    </a>
-    {% if res.url and h.is_url(res.url) %}
-    <ul class="dropdown-menu" aria-labelledby="dropdownMapTransform">
-      {% if res.url and h.is_url(res.url) %}
-      <li>
-        <a href="{{ url }}/csv_annotate" class="dropdown-item  resource-url-csvtocsvw-annotate" target="_blank" rel="noreferrer">
-          <i class="fa fa-external-link"></i>
-          {{ _('Annotate') }}
-        </a>
-          <a class="dropdown-item resource-url-csvtocsvw-transform" href="{{ url }}/csv_transform" target="_blank" rel="noreferrer">
-          <i class="fa fa-external-link"></i>
-            {{ _('Transform') }}
-        </a>
-      </li>
-      {% endif %}
-    </ul>
-    {% endif %}
-  </div>
-  {% endif %}
-  {% endblock %}
+{% block resource_item_explore_links %}
+{{ super() }}
+{% if not url_is_edit and h.csvtocsvw_show_tools(res) %}
+{% if res.url and h.is_url(res.url) %}
+<li>
+  <a href="{{ url }}/csv_annotate" class="dropdown-item  resource-url-csvtocsvw-annotate" target="_blank"
+    rel="noreferrer">
+    <i class="fa fa-external-link"></i>
+    {{ _('Annotate') }}
+  </a>
+</li>
+<li>
+  <a href="{{ url }}/csv_transform" class="dropdown-item  resource-url-csvtocsvw-annotate" target="_blank"
+    rel="noreferrer">
+    <i class="fa fa-external-link"></i>
+    {{ _('Transform') }}
+  </a>
+</li>
+{% endif %}
+{% endif %}
+{% endblock %}

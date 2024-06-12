@@ -12,6 +12,8 @@ else:
     class Context(dict):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
+
+
 from typing import Any
 import mimetypes
 
@@ -39,7 +41,6 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
         toolkit.add_public_directory(config_, "public")
-        toolkit.add_resource("fanstatic", "csvtocsvw")
         mimetypes.add_type("application/ld+json", ".jsonld")
 
     # IResourceUrlChange
@@ -52,29 +53,32 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
                 "id": resource.id,
             },
         )
-        self._sumbit_toannotate(resource_dict)
+        if self._is_csv_file(resource_dict):
+            self._sumbit_toannotate(resource_dict)
+        elif self._is_csv_jsonld_file(resource_dict):
+            self._sumbit_totansform(resource_dict)
 
     # IResourceController
 
     def after_resource_create(self, context: Context, resource_dict: dict[str, Any]):
-        self._sumbit_toannotate(resource_dict)
+        if self._is_csv_file(resource_dict):
+            self._sumbit_toannotate(context, resource_dict)
+        elif self._is_csv_jsonld_file(resource_dict):
+            self._sumbit_totansform(context, resource_dict)
 
     def after_update(self, context: Context, resource_dict: dict[str, Any]):
-        self._sumbit_toannotate(resource_dict)
+        if self._is_csv_file(resource_dict):
+            self._sumbit_toannotate(context, resource_dict)
+        elif self._is_csv_jsonld_file(resource_dict):
+            self._sumbit_totansform(context, resource_dict)
 
-    def _sumbit_toannotate(self, resource_dict: dict[str, Any]):
-        context = {"model": model, "ignore_auth": True, "defer_commit": True}
-        format = resource_dict.get("format", None)
-        submit = format and format.lower() in DEFAULT_FORMATS
+    def _sumbit_toannotate(self, context: Context, resource_dict: dict[str, Any]):
         log.debug(
             "Submitting resource {0} with format {1}".format(
                 resource_dict["id"], format
             )
             + " to csvtocsvw_annotate"
         )
-
-        if not submit:
-            return
         try:
             log.debug(
                 "Submitting resource {0}".format(resource_dict["id"])
@@ -90,6 +94,41 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
             log.critical(e)
             pass
         return
+
+    def _sumbit_totansform(self, context: Context, resource_dict: dict[str, Any]):
+        log.debug(
+            "Submitting resource {0} with format {1}".format(
+                resource_dict["id"], format
+            )
+            + " to csvtocsvw_transform"
+        )
+        try:
+            log.debug(
+                "Submitting resource {0}".format(resource_dict["id"])
+                + " to csvtocsvw_transform"
+            )
+            toolkit.get_action("csvtocsvw_transform")(
+                context, {"id": resource_dict["id"]}
+            )
+
+        except toolkit.ValidationError as e:
+            # If CSVTOCSVW is offline want to catch error instead
+            # of raising otherwise resource save will fail with 500
+            log.critical(e)
+            pass
+        return
+
+    def _is_csv_file(self, resource_dict: dict):
+        format = resource_dict.get("format", None)
+        submit = format and format.lower() in DEFAULT_FORMATS
+        return submit
+
+    def _is_csv_jsonld_file(self, resource_dict: dict):
+        format = resource_dict.get("format", None)
+        submit = format and format.lower() in [
+            "json-ld",
+        ]
+        return submit
 
     # ITemplateHelpers
 

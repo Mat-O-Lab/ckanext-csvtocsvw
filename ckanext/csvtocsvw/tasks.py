@@ -55,7 +55,7 @@ def annotate_csv(
     # log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
 
     s = requests.Session()
-    s.verify=SSL_VERIFY
+    s.verify = SSL_VERIFY
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
     csv_data = s.get(csv_res["url"]).content
     # prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
@@ -147,36 +147,27 @@ def transform_csv(
     job_dict = dict(metadata=metadata, status="running", job_info=job_info)
     errored = False
     callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
-    csv_res = get_action("resource_show")(context, {"id": res_id})
-    # need to get it as string, casue url annotation doesnt work with private datasets
-    # filename,filedata=annotate_csv_uri(csv_res['url'])
-    prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
-    if not prefix:
-        prefix = "unnamed"
-    format = "turtle"
-    metadata_res = resource_search(dataset_id, prefix + "-metadata.jsonld")
-    log.debug(
-        "Transforming {} with metadata {}".format(csv_res["url"], metadata_res["url"])
-    )
-    filename, filedata, mime_type = csvw_to_rdf(
-        metadata_res["url"], format=format, authorization=CSVTOCSVW_TOKEN
-    )
-    # upload result to ckan
-    rdf_res = resource_search(dataset_id, filename)
-    if rdf_res:
-        existing_id = rdf_res["id"]
-        log.debug("Found existing resources {}".format(rdf_res))
-    else:
-        existing_id = None
-    res = file_upload(
-        dataset_id=dataset_id,
-        filename=filename,
-        filedata=filedata,
-        res_id=existing_id,
-        format=mime_type,
-        mime_type=mime_type,
-        authorization=CSVTOCSVW_TOKEN,
-    )
+    metadata_res = get_action("resource_show")(context, {"id": res_id})
+    if metadata_res:
+        filename, filedata, mime_type = csvw_to_rdf(
+            res_url, format="turtle", authorization=CSVTOCSVW_TOKEN
+        )
+        # upload result to ckan
+        rdf_res = resource_search(dataset_id, filename)
+        if rdf_res:
+            existing_id = rdf_res["id"]
+            log.debug("Found existing resources {}".format(rdf_res))
+        else:
+            existing_id = None
+        res = file_upload(
+            dataset_id=dataset_id,
+            filename=filename,
+            filedata=filedata,
+            res_id=existing_id,
+            format=mime_type,
+            mime_type=mime_type,
+            authorization=CSVTOCSVW_TOKEN,
+        )
 
     if not errored:
         job_dict["status"] = "complete"
@@ -348,7 +339,7 @@ def file_upload(
         url = expand_url(CKAN_URL, "/api/action/resource_patch")
     else:
         url = expand_url(CKAN_URL, "/api/action/resource_create")
-    response = requests.post(url, headers=headers, data=mp_encoder,verify=SSL_VERIFY)
+    response = requests.post(url, headers=headers, data=mp_encoder, verify=SSL_VERIFY)
     response.raise_for_status()
     r = response.json()
     log.debug("file {} uploaded at: {}".format(filename, r))
