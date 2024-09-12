@@ -12,7 +12,7 @@ from rdflib.collection import Collection
 from rdflib.namespace import CSVW, RDF, XSD
 from rdflib.util import guess_format
 
-locale.setlocale(locale.LC_ALL, "en_us")
+locale.setlocale(locale.LC_ALL, "en_us.utf-8")
 
 QUDT_UNIT_URL = "./ontologies/qudt_unit.ttl"
 QUDT = Namespace("http://qudt.org/schema/qudt/")
