@@ -57,6 +57,8 @@ def annotate_csv(
     s = requests.Session()
     s.verify = SSL_VERIFY
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
+    # log.debug("Using: {}".format(CSVTOCSVW_TOKEN))
+
     csv_data = s.get(csv_res["url"]).content
     # prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
     filename, meta_data, mime_type = annotate_csv_uri(
@@ -64,23 +66,22 @@ def annotate_csv(
     )
     if meta_data:
         # Upload resource to CKAN as a new/updated resource
-        # res=get_resource(res_id)
-        metadata_res = resource_search(dataset_id, filename)
-        # log.debug(meta_data)
         prefix, suffix = filename.rsplit(".", 1)
         if suffix == "json" and "ld+json" in mime_type:
-            filename = prefix + ".jsonld"
-        log.debug(
-            "{}.{} {} is json-ld:{}".format(
-                prefix, suffix, mime_type, "ld+json" in mime_type
+            log.debug(
+                "{}.{} {} is json-ld:{}".format(
+                    prefix, suffix, mime_type, "ld+json" in mime_type
+                )
             )
-        )
+            filename = prefix + ".jsonld"
+        else:
+            filename = prefix + "." + suffix
+        metadata_res = resource_search(dataset_id, filename)
         if metadata_res:
             log.debug("Found existing resource {}".format(metadata_res))
             existing_id = metadata_res["id"]
         else:
             existing_id = None
-
         res = file_upload(
             dataset_id=dataset_id,
             filename=filename,

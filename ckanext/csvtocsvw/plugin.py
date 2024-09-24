@@ -54,9 +54,9 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
             },
         )
         if self._is_csv_file(resource_dict):
-            self._sumbit_toannotate(resource_dict)
+            self._sumbit_toannotate(context, resource_dict)
         elif self._is_csv_jsonld_file(resource_dict):
-            self._sumbit_totansform(resource_dict)
+            self._sumbit_totansform(context, resource_dict)
 
     # IResourceController
 
