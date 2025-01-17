@@ -5,14 +5,14 @@
 {% if not url_is_edit and h.csvtocsvw_show_tools(res) %}
 {% if res.url and h.is_url(res.url) %}
 <li>
-  <a href="{{ url }}/csv_annotate" class="dropdown-item  resource-url-csvtocsvw-annotate" target="_blank"
+  <a href="{{ url }}/csv_annotate" class="dropdown-item" target="_blank"
     rel="noreferrer">
     <i class="fa fa-external-link"></i>
     {{ _('Annotate') }}
   </a>
 </li>
 <li>
-  <a href="{{ url }}/csv_transform" class="dropdown-item  resource-url-csvtocsvw-annotate" target="_blank"
+  <a href="{{ url }}/csv_transform" class="dropdown-item" target="_blank"
     rel="noreferrer">
     <i class="fa fa-external-link"></i>
     {{ _('Transform') }}
