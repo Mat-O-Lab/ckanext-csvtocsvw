@@ -9,6 +9,7 @@ import ckan.plugins.toolkit as toolkit
 import ckan.lib.helpers as core_helpers
 import ckan.lib.base as base
 import json
+from ckan.common import _
 
 log = __import__("logging").getLogger(__name__)
 
@@ -17,6 +18,10 @@ class AnnotateView(MethodView):
     def post(self, id: str, resource_id: str):
         try:
             toolkit.get_action("csvtocsvw_annotate")({}, {"resource_id": resource_id})
+        except toolkit.ObjectNotFound:
+            base.abort(404, "Resource not found")
+        except toolkit.NotAuthorized:
+            base.abort(403, _("Not authorized to see this page"))
         except toolkit.ValidationError:
             log.debug(toolkit.ValidationError)
 
@@ -32,11 +37,7 @@ class AnnotateView(MethodView):
             # backward compatibility with old templates
             toolkit.g.pkg_dict = pkg_dict
             toolkit.g.resource = resource
-
-        except (toolkit.ObjectNotFound, toolkit.NotAuthorized):
-            base.abort(404, "Resource not found")
-        status = None
-        try:
+            status = None
             task = toolkit.get_action("task_status_show")(
                 {},
                 {
@@ -45,24 +46,26 @@ class AnnotateView(MethodView):
                     "key": "csvtocsvw_annotate",
                 },
             )
-        except:
-            status = None
-        else:
-            value = json.loads(task["value"])
-            job_id = value.get("job_id")
-            url = None
-            try:
-                error = json.loads(task["error"])
-            except ValueError:
-                # this happens occasionally, such as when the job times out
-                error = task["error"]
-            status = {
-                "status": task["state"],
-                "job_id": job_id,
-                "job_url": url,
-                "last_updated": task["last_updated"],
-                "error": error,
-            }
+        except toolkit.ObjectNotFound:
+            base.abort(404, "Resource not found")
+        except toolkit.NotAuthorized:
+            base.abort(403, _("Not authorized to see this page"))
+        
+        value = json.loads(task["value"])
+        job_id = value.get("job_id")
+        url = None
+        try:
+            error = json.loads(task["error"])
+        except ValueError:
+            # this happens occasionally, such as when the job times out
+            error = task["error"]
+        status = {
+            "status": task["state"],
+            "job_id": job_id,
+            "job_url": url,
+            "last_updated": task["last_updated"],
+            "error": error,
+        }
 
         return base.render(
             "csvtocsvw/csv_annotate.html",
@@ -78,9 +81,12 @@ class TransformView(MethodView):
     def post(self, id: str, resource_id: str):
         try:
             toolkit.get_action("csvtocsvw_transform")({}, {"resource_id": resource_id})
+        except toolkit.ObjectNotFound:
+            base.abort(404, "Resource not found")
+        except toolkit.NotAuthorized:
+            base.abort(403, _("Not authorized to see this page"))
         except toolkit.ValidationError:
             log.debug(toolkit.ValidationError)
-
         return core_helpers.redirect_to(
             "csvtocsvw.csv_transform", id=id, resource_id=resource_id
         )
@@ -94,10 +100,7 @@ class TransformView(MethodView):
             toolkit.g.pkg_dict = pkg_dict
             toolkit.g.resource = resource
 
-        except (toolkit.ObjectNotFound, toolkit.NotAuthorized):
-            base.abort(404, "Resource not found")
-        status = None
-        try:
+            status = None
             task = toolkit.get_action("task_status_show")(
                 {},
                 {
@@ -106,25 +109,29 @@ class TransformView(MethodView):
                     "key": "csvtocsvw_transform",
                 },
             )
-        except:
-            status = None
-        else:
-            value = json.loads(task["value"])
-            job_id = value.get("job_id")
-            url = None
-            try:
-                error = json.loads(task["error"])
-            except ValueError:
-                # this happens occasionally, such as when the job times out
-                error = task["error"]
-            status = {
-                "status": task["state"],
-                "job_id": job_id,
-                "job_url": url,
-                "last_updated": task["last_updated"],
-                "error": error,
-                "task": task,
-            }
+        except toolkit.ObjectNotFound:
+            base.abort(404, "Resource not found")
+        except toolkit.NotAuthorized:
+            base.abort(403, _("Not authorized to see this page"))
+        except toolkit.ValidationError:
+            log.debug(toolkit.ValidationError)
+        
+        value = json.loads(task["value"])
+        job_id = value.get("job_id")
+        url = None
+        try:
+            error = json.loads(task["error"])
+        except ValueError:
+            # this happens occasionally, such as when the job times out
+            error = task["error"]
+        status = {
+            "status": task["state"],
+            "job_id": job_id,
+            "job_url": url,
+            "last_updated": task["last_updated"],
+            "error": error,
+            "task": task,
+        }
 
         return base.render(
             "csvtocsvw/csv_transform.html",
@@ -145,7 +152,6 @@ blueprint.add_url_rule(
     "/dataset/<id>/resource/<resource_id>/csv_transform",
     view_func=TransformView.as_view(str("csv_transform")),
 )
-
 
 def get_blueprint():
     return blueprint
