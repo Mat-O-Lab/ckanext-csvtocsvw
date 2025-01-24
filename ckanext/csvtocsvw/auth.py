@@ -1,5 +1,6 @@
 import ckanext.datastore.logic.auth as auth
 
+
 def csvtocsvw_annotate(context, data_dict):
     if "resource" in data_dict and data_dict["resource"].get("package_id"):
         data_dict["id"] = data_dict["resource"].get("package_id")

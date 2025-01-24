@@ -3,13 +3,14 @@ from flask import Blueprint
 blueprint = Blueprint("csvtocsvw", __name__)
 
 
+import json
+
+import ckan.lib.base as base
+import ckan.lib.helpers as core_helpers
+import ckan.plugins.toolkit as toolkit
+from ckan.common import _
 from flask import Blueprint
 from flask.views import MethodView
-import ckan.plugins.toolkit as toolkit
-import ckan.lib.helpers as core_helpers
-import ckan.lib.base as base
-import json
-from ckan.common import _
 
 log = __import__("logging").getLogger(__name__)
 
@@ -50,7 +51,7 @@ class AnnotateView(MethodView):
             base.abort(404, "Resource not found")
         except toolkit.NotAuthorized:
             base.abort(403, _("Not authorized to see this page"))
-        
+
         value = json.loads(task["value"])
         job_id = value.get("job_id")
         url = None
@@ -115,7 +116,7 @@ class TransformView(MethodView):
             base.abort(403, _("Not authorized to see this page"))
         except toolkit.ValidationError:
             log.debug(toolkit.ValidationError)
-        
+
         value = json.loads(task["value"])
         job_id = value.get("job_id")
         url = None
@@ -152,6 +153,7 @@ blueprint.add_url_rule(
     "/dataset/<id>/resource/<resource_id>/csv_transform",
     view_func=TransformView.as_view(str("csv_transform")),
 )
+
 
 def get_blueprint():
     return blueprint

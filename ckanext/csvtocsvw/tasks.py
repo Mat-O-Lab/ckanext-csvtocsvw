@@ -1,19 +1,21 @@
+import datetime
+import decimal
 import json
+from urllib.parse import urljoin, urlparse, urlsplit
+
+import ckan.plugins.toolkit as toolkit
 import ckanapi
 import ckanapi.datapackage
 import requests
 from ckan import model
-import ckan.plugins.toolkit as toolkit
-from ckanext.csvtocsvw.annotate import (
-    annotate_csv_upload,
-    csvw_to_rdf,
-    annotate_csv_uri,
-)
-from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
-import datetime, decimal
-from urllib.parse import urlparse, urljoin, urlsplit
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
+from ckanext.csvtocsvw.annotate import (
+    annotate_csv_upload,
+    annotate_csv_uri,
+    csvw_to_rdf,
+)
+from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
 
 log = __import__("logging").getLogger(__name__)
 
@@ -85,9 +87,9 @@ def annotate_csv(
         # delete the datastore created from datapusher
         try:
             toolkit.get_action("datastore_delete")(
-                {"ignore_auth": True}, {"id": csv_res['id'], 'force': True}
+                {"ignore_auth": True}, {"id": csv_res["id"], "force": True}
             )
-            log.debug("Datastore of resource {} deleted.".format(csv_res['id']))
+            log.debug("Datastore of resource {} deleted.".format(csv_res["id"]))
         except toolkit.ObjectNotFound:
             pass
         parse = CSVWtoRDF(meta_data, csv_data)
@@ -114,7 +116,7 @@ def annotate_csv(
                 )
     else:
         log.debug("No data found.")
-        errored=True
+        errored = True
     if not errored:
         job_dict["status"] = "complete"
     else:
@@ -225,8 +227,8 @@ def send_resource_to_datastore(
         "calculate_record_count": is_it_the_last_chunk,
     }
     # log.debug(request)
-    ckan_url=toolkit.config.get("ckan.site_url")
-    url = ckan_url+toolkit.url_for('api.action',logic_function='datastore_create')
+    ckan_url = toolkit.config.get("ckan.site_url")
+    url = ckan_url + toolkit.url_for("api.action", logic_function="datastore_create")
     res = session.post(url, json=request)
     if res.status_code != 200:
         log.debug("Create of datastore for resource {} failed.".format(resource_id))
@@ -311,20 +313,31 @@ def file_upload(
             }
         )
     headers["Content-Type"] = mp_encoder.content_type
-    ckan_url=toolkit.config.get("ckan.site_url")
+    ckan_url = toolkit.config.get("ckan.site_url")
     if res_id:
-        url = ckan_url+toolkit.url_for('api.action',logic_function='resource_patch')
+        url = ckan_url + toolkit.url_for("api.action", logic_function="resource_patch")
     else:
-        url = ckan_url+toolkit.url_for('api.action',logic_function='resource_create')
+        url = ckan_url + toolkit.url_for("api.action", logic_function="resource_create")
     try:
-        response = requests.post(url, headers=headers, data=mp_encoder, verify=toolkit.config.get("ckanext.csvtocsvw.ssl_verify"))
+        response = requests.post(
+            url,
+            headers=headers,
+            data=mp_encoder,
+            verify=toolkit.config.get("ckanext.csvtocsvw.ssl_verify"),
+        )
         response.raise_for_status()
     except requests.exceptions.HTTPError as http_err:
         log.debug(f"HTTP error occurred: {http_err}")  # Handle HTTP errors
-        log.debug(f"Status Code: {http_err.response.status_code}")  # Optionally includes the status code
-        log.debug(f"Response Body: {http_err.response.text}")  # Optionally includes the response body
+        log.debug(
+            f"Status Code: {http_err.response.status_code}"
+        )  # Optionally includes the status code
+        log.debug(
+            f"Response Body: {http_err.response.text}"
+        )  # Optionally includes the response body
     except requests.exceptions.RequestException as req_err:
-        log.debug(f"Request error occurred: {req_err}")  # Handle other request-related errors
+        log.debug(
+            f"Request error occurred: {req_err}"
+        )  # Handle other request-related errors
     except Exception as err:
         log.debug(f"An error occurred: {err}")  # Handle any other errors
     r = response.json()

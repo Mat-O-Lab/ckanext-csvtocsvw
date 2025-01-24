@@ -1,8 +1,8 @@
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 from ckan import model
-from ckan.lib.plugins import DefaultTranslation
 from ckan.config.declaration import Declaration, Key
+from ckan.lib.plugins import DefaultTranslation
 
 if toolkit.check_ckan_version("2.10"):
     from ckan.types import Context
@@ -13,12 +13,13 @@ else:
             super().__init__(**kwargs)
 
 
-from typing import Any
 import mimetypes
+from typing import Any
 
-from ckanext.csvtocsvw import action, helpers, views, auth
+from ckanext.csvtocsvw import action, auth, helpers, views
 
 log = __import__("logging").getLogger(__name__)
+
 
 class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     plugins.implements(plugins.ITranslation)
@@ -36,6 +37,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
         mimetypes.add_type("application/ld+json", ".jsonld")
+
     # IConfigDeclaration
 
     def declare_config_options(self, declaration: Declaration, key: Key):
@@ -102,7 +104,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def _sumbit_totansform(self, context: Context, resource_dict: dict[str, Any]):
         log.debug(
             "Submitting resource {0} with format {1}".format(
-                resource_dict["id"], resource_dict['format']
+                resource_dict["id"], resource_dict["format"]
             )
             + " to csvtocsvw_transform"
         )
@@ -124,7 +126,9 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     def _is_csv_file(self, resource_dict: dict):
         format = resource_dict.get("format", None)
-        default_formats=toolkit.config.get("ckanext.csvtocsvw.formats").lower().split()
+        default_formats = (
+            toolkit.config.get("ckanext.csvtocsvw.formats").lower().split()
+        )
         submit = format and format.lower() in default_formats
         return submit
 

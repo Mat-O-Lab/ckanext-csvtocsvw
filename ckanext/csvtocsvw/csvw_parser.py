@@ -133,9 +133,11 @@ def parse_csv_from_url_to_list(
     # replace decimal seperator in numeric data concerning locale - use us_uk notation with .
     # table_data.map(lambda x: locale.atof(str(x)) if ',' in str(x) else str(x),inplace=True)
     table_data = table_data.map(
-        lambda x: str(x).replace(",", ".").replace(".", "", str(x).count("."))
-        if "," in str(x)
-        else str(x)
+        lambda x: (
+            str(x).replace(",", ".").replace(".", "", str(x).count("."))
+            if "," in str(x)
+            else str(x)
+        )
     )
 
     # replace nan values with empty strings to be serializable as json
@@ -215,12 +217,12 @@ class CSVWtoRDF:
         # self.metagraph=parse_graph(self.metadata_url,Graph(),format=metaformat)
         self.metagraph = Graph().parse(data=metadata, format=metaformat)
         # self.metagraph.serialize('test.ttl',format='turtle')
-        #print(list(self.metagraph[: CSVW.url]))
-        if len(list(self.metagraph[: CSVW.url]))==0:
+        # print(list(self.metagraph[: CSVW.url]))
+        if len(list(self.metagraph[: CSVW.url])) == 0:
             # if no url then also no table to parse
-            self.meta_root=""
-            self.base_url=""
-            self.tables={}
+            self.meta_root = ""
+            self.base_url = ""
+            self.tables = {}
             return None
         else:
             self.meta_root, url = list(self.metagraph[: CSVW.url])[0]
@@ -245,9 +247,13 @@ class CSVWtoRDF:
             if self.tables:
                 for key, data in self.tables.items():
                     dialect = next(self.metagraph[key : CSVW.dialect], None)
-                    data["dialect"] = {k: v.value for (k, v) in self.metagraph[dialect:]}
+                    data["dialect"] = {
+                        k: v.value for (k, v) in self.metagraph[dialect:]
+                    }
                     # print(data['dialect'])
-                    data["schema"] = next(self.metagraph[key : CSVW.tableSchema :], None)
+                    data["schema"] = next(
+                        self.metagraph[key : CSVW.tableSchema :], None
+                    )
                     data["columns"] = get_columns_from_schema(
                         data["schema"], self.metagraph
                     )
