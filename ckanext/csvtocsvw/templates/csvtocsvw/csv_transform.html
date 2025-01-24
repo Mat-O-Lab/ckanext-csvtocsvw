@@ -30,7 +30,8 @@
   {% block form %}
   <form method="post" action="{{ action }}" class="csvtocsvw-form">
     {{ h.csrf_input() }} 
-    <button class="btn btn-primary" name="save" type="submit">
+    <button class="btn btn-primary {% if not
+      meta_res %}disabled{% endif %}" name="save" type="submit">
       <i class="fa fa-play"></i> {{ _('Run Transformation') }}
     </button>
   </form>

@@ -67,7 +67,12 @@ def annotate_csv(
         else:
             filename = prefix + "." + suffix
 
-        metadata_res = resource_search(dataset_id, filename)
+        metadata_res = resource_search(
+            context,
+            dataset_id,
+            name=filename,
+            hadPrimarySource=csv_res["url"],
+        )
         if metadata_res:
             log.debug("Found existing resource {}".format(metadata_res))
             existing_id = metadata_res["id"]
@@ -77,10 +82,15 @@ def annotate_csv(
         res = file_upload(
             dataset_id=dataset_id,
             filename=filename,
-            filedata=meta_data,
+            filedata=BytesIO(meta_data),
             res_id=existing_id,
             format="json-ld",
             mime_type=mime_type,
+            extras={
+                "hadPrimarySource": csv_res["url"],
+                "wasGeneratedBy": toolkit.config.get("ckanext.csvtocsvw.csvtocsvw_url")
+                + "/api/annotate?return_type=json-ld",
+            },
             authorization=CSVTOCSVW_TOKEN,
         )
 
@@ -150,10 +160,15 @@ def transform_csv(
     metadata_res = toolkit.get_action("resource_show")(context, {"id": res_id})
     if metadata_res:
         filename, filedata, mime_type = csvw_to_rdf(
-            res_url, format="turtle", authorization=CSVTOCSVW_TOKEN
+            metadata_res["url"], format="turtle", authorization=CSVTOCSVW_TOKEN
         )
         # upload result to ckan
-        rdf_res = resource_search(dataset_id, filename)
+        rdf_res = resource_search(
+            context,
+            dataset_id,
+            name=filename,
+            hadPrimarySource=metadata_res["url"],
+        )
         if rdf_res:
             existing_id = rdf_res["id"]
             log.debug("Found existing resources {}".format(rdf_res))
@@ -162,7 +177,12 @@ def transform_csv(
         res = file_upload(
             dataset_id=dataset_id,
             filename=filename,
-            filedata=filedata,
+            filedata=BytesIO(filedata),
+            extras={
+                "hadPrimarySource": res_url,
+                "wasGeneratedBy": toolkit.config.get("ckanext.csvtocsvw.csvtocsvw_url")
+                + "/api/rdf?return_type=turtle",
+            },
             res_id=existing_id,
             format=mime_type,
             mime_type=mime_type,
@@ -246,14 +266,40 @@ def get_resource(id):
         return res
 
 
-def resource_search(dataset_id, res_name):
-    local_ckan = ckanapi.LocalCKAN()
-    dataset = local_ckan.action.package_show(id=dataset_id)
-    log.debug(dataset)
-    for res in dataset["resources"]:
-        if res["name"] == res_name:
-            return res
-    return None
+def find_first_matching_dict(dicts, match_dict):
+    for d in dicts:
+        if all(d.get(k) == v for k, v in match_dict.items()):
+            return d
+    return None  # Return None if no match is found
+
+
+def resource_search(context, dataset_id: str = "", **kwargs):
+    """
+    Searches for a resource in a dataset by matching specified criteria.
+
+    Parameters:
+    - context: The context for the action.
+    - dataset_id (str): The ID of the dataset to search in.
+    - kwargs: Arbitrary keyword arguments representing the resource attributes to match.
+        Example keys include 'name', 'hadPrimarySource', etc. Only non-empty values will be included in the match criteria.
+
+    Returns:
+    - dict: The first resource that matches the given criteria, or None if no match is found or if dataset_id is not provided.
+    """
+    match_criteria = {}
+
+    if dataset_id:
+        dataset = toolkit.get_action("package_show")(context, {"id": dataset_id})
+
+        # Add all kwargs to match_criteria
+        for key, value in kwargs.items():
+            if value:  # Only add non-empty values
+                match_criteria[key] = value
+
+        result = find_first_matching_dict(dataset["resources"], match_criteria)
+        return result  # Return the matching resource if found
+    else:
+        return None
 
 
 def callback_csvtocsvw_hook(result_url, api_key, job_dict):
@@ -287,31 +333,25 @@ from io import BytesIO
 def file_upload(
     dataset_id,
     filename,
-    filedata,
+    filedata: BytesIO,
     res_id=None,
     format="",
     group=None,
+    extras={},
     mime_type="text/csv",
     authorization=None,
 ):
-    data_stream = BytesIO(filedata)
+    fields = {"upload": (filename, filedata, mime_type), "id": res_id}
+    if extras:
+        fields.update(extras)
+    if not res_id:
+        fields["package_id"] = dataset_id
+        fields["name"] = filename
+        fields["format"] = format
+    mp_encoder = MultipartEncoder(fields=fields)
     headers = {}
     if authorization:
         headers["Authorization"] = authorization
-    if res_id:
-        mp_encoder = MultipartEncoder(
-            fields={"id": res_id, "upload": (filename, data_stream, mime_type)}
-        )
-    else:
-        mp_encoder = MultipartEncoder(
-            fields={
-                "package_id": dataset_id,
-                "name": filename,
-                "format": format,
-                "id": res_id,
-                "upload": (filename, data_stream, mime_type),
-            }
-        )
     headers["Content-Type"] = mp_encoder.content_type
     ckan_url = toolkit.config.get("ckan.site_url")
     if res_id:
