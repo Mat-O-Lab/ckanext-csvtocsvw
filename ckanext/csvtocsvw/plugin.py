@@ -1,9 +1,8 @@
-import re, os
-
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 from ckan import model
 from ckan.lib.plugins import DefaultTranslation
+from ckan.config.declaration import Declaration, Key
 
 if toolkit.check_ckan_version("2.10"):
     from ckan.types import Context
@@ -21,14 +20,10 @@ from ckanext.csvtocsvw import action, helpers, views, auth
 
 log = __import__("logging").getLogger(__name__)
 
-DEFAULT_FORMATS = os.environ.get("CKANINI__CSVTOCSVW__FORMATS", "").lower().split()
-if not DEFAULT_FORMATS:
-    DEFAULT_FORMATS = ["csv", "txt", "asc", "tsv"]
-
-
 class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     plugins.implements(plugins.ITranslation)
     plugins.implements(plugins.IConfigurer)
+    plugins.implements(plugins.IConfigDeclaration)
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IResourceUrlChange)
     plugins.implements(plugins.IResourceController, inherit=True)
@@ -41,6 +36,16 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
         mimetypes.add_type("application/ld+json", ".jsonld")
+    # IConfigDeclaration
+
+    def declare_config_options(self, declaration: Declaration, key: Key):
+
+        declaration.annotate("csvtocsvw")
+        group = key.ckanext.csvtocsvw
+        declaration.declare_bool(group.ssl_verify, True)
+        declaration.declare(group.csvtocsvw_url, "https://csvtocsvw.matolab.org")
+        declaration.declare(group.ckan_token, "")
+        declaration.declare(group.formats, "csv txt asc tsv")
 
     # IResourceUrlChange
 
@@ -97,7 +102,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def _sumbit_totansform(self, context: Context, resource_dict: dict[str, Any]):
         log.debug(
             "Submitting resource {0} with format {1}".format(
-                resource_dict["id"], format
+                resource_dict["id"], resource_dict['format']
             )
             + " to csvtocsvw_transform"
         )
@@ -119,7 +124,8 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     def _is_csv_file(self, resource_dict: dict):
         format = resource_dict.get("format", None)
-        submit = format and format.lower() in DEFAULT_FORMATS
+        default_formats=toolkit.config.get("ckanext.csvtocsvw.formats").lower().split()
+        submit = format and format.lower() in default_formats
         return submit
 
     def _is_csv_jsonld_file(self, resource_dict: dict):

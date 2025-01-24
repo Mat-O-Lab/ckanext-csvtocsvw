@@ -62,25 +62,8 @@ def csvtocsvw_annotate(context: Context, data_dict: dict[str, Any]) -> dict[str,
         assume_task_stale_after = datetime.timedelta(seconds=3600)
         assume_task_stillborn_after = datetime.timedelta(seconds=int(5))
         if existing_task.get("state") == "pending":
-            # queued_res_ids = [
-            #     re.search(r"'resource_id': u?'([^']+)'",
-            #               job.description).groups()[0]
-            #     for job in get_queue().get_jobs()
-            #     if 'xloader_to_datastore' in str(job)  # filter out test_job etc
-            # ]
             updated = parse_iso_date(existing_task["last_updated"])
             time_since_last_updated = datetime.datetime.utcnow() - updated
-            # if (res_id not in queued_res_ids
-            #         and time_since_last_updated > assume_task_stillborn_after):
-            #     # it's not on the queue (and if it had just been started then
-            #     # its taken too long to update the task_status from pending -
-            #     # the first thing it should do in the xloader job).
-            #     # Let it be restarted.
-            #     log.info('A pending task was found %r, but its not found in '
-            #              'the queue %r and is %s hours old',
-            #              existing_task['id'], queued_res_ids,
-            #              time_since_last_updated)
-            # elif time_since_last_updated > assume_task_stale_after:
             if time_since_last_updated > assume_task_stale_after:
                 # it's been a while since the job was last updated - it's more
                 # likely something went wrong with it and the state wasn't
@@ -381,15 +364,6 @@ def csvtocsvw_hook(context, data_dict):
 
     context["ignore_auth"] = True
     toolkit.get_action("task_status_update")(context, task)
-
-    # create default views
-    # logic.get_action('resource_create_default_resource_views')(
-    #         context,
-    #         {
-    #             'resource': resource_dict,
-    #             'package': dataset_dict,
-    #             'create_datastore_views': True,
-    #         })
 
     if resubmit:
         log.debug("Resource %s has been modified, " "resubmitting to csvtocsvw", res_id)

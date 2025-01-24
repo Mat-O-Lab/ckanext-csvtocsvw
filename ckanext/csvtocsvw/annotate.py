@@ -1,16 +1,16 @@
-import json
 import os
 import re
 
 import requests
+import ckan.plugins.toolkit as toolkit
 
-csvtocsvw_url = os.environ.get("CKAN_CSVTOCSVW_URL")
 
 def annotate_csv_uri(
     csv_url: str,
     encoding: str = "auto",
     authorization: str = ""
 ):
+    csvtocsvw_url = toolkit.config.get("ckanext.csvtocsvw.csvtocsvw_url")
     # curl -X 'POST' \ 'https://csvtocsvw.matolab.org/api/annotation' \ -H 'accept: application/json' \ -H 'Content-Type: application/json' \ -d '{ "data_url": "https://github.com/Mat-O-Lab/CSVToCSVW/raw/main/examples/example.csv", "separator": "auto", "header_separator": "auto", "encoding": "auto" }'
     url = csvtocsvw_url + "/api/annotate?return_type=json-ld"
     data = {"data_url": csv_url, "encoding": encoding}
@@ -32,6 +32,7 @@ def annotate_csv_upload(
     filepath: str,
     encoding: str = "auto",
 ):
+    csvtocsvw_url = toolkit.config.get("ckanext.csvtocsvw.csvtocsvw_url")
     # curl -X 'POST' \ 'https://csvtocsvw.matolab.org/api/annotate_upload?encoding=auto' \ -H 'accept: application/json' \ -H 'Content-Type: multipart/form-data' \ -F 'file=@detection_runs.csv;type=text/csv'
     url = csvtocsvw_url + "/api/annotate_upload?encoding=auto&return_type=json-ld"
     headers = {"accept": "application/json"}
@@ -53,6 +54,7 @@ def csvw_to_rdf(
     format: str = "turtle",
     authorization = None    
 ):
+    csvtocsvw_url = toolkit.config.get("ckanext.csvtocsvw.csvtocsvw_url")
     # curl -X 'POST' \ 'https://csvtocsvw.matolab.org/api/rdf' \ -H 'accept: application/json' \ -H 'Content-Type: application/json' \ -d '{ "metadata_url": "https://github.com/Mat-O-Lab/resources/raw/main/rdfconverter/tests/detection_runs-metadata.json", "format": "turtle" }'
     url = csvtocsvw_url + "/api/rdf?return_type="+format
     data = {"metadata_url": meta_url, "format": format}

@@ -1,12 +1,9 @@
 import json
-import os
-import tempfile
-
 import ckanapi
 import ckanapi.datapackage
 import requests
 from ckan import model
-from ckan.plugins.toolkit import get_action, asbool
+import ckan.plugins.toolkit as toolkit
 from ckanext.csvtocsvw.annotate import (
     annotate_csv_upload,
     csvw_to_rdf,
@@ -20,16 +17,7 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 log = __import__("logging").getLogger(__name__)
 
-CKAN_URL = os.environ.get("CKAN_SITE_URL", "http://localhost:5000")
-CSVTOCSVW_TOKEN = os.environ.get("CSVW_API_TOKEN", "")
 CHUNK_INSERT_ROWS = 250
-
-SSL_VERIFY = asbool(os.environ.get("CKANINI__CSVTOCSVW__SSL_VERIFY", True))
-if not SSL_VERIFY:
-    requests.packages.urllib3.disable_warnings()
-
-
-from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
 
 def annotate_csv(
@@ -38,8 +26,13 @@ def annotate_csv(
     # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
     #         ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
     context = {"session": model.meta.create_local_session(), "ignore_auth": True}
+    CSVTOCSVW_TOKEN = toolkit.config.get("ckanext.csvtocsvw.ckan_token")
+    SSL_VERIFY = toolkit.config.get("ckanext.csvtocsvw.ssl_verify")
+    if not SSL_VERIFY:
+        requests.packages.urllib3.disable_warnings()
+
     metadata = {
-        "ckan_url": CKAN_URL,
+        "ckan_url": toolkit.config.get("ckan.site_url"),
         "resource_id": res_id,
         "task_created": last_updated,
         "original_url": res_url,
@@ -50,7 +43,7 @@ def annotate_csv(
     errored = False
     callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
 
-    csv_res = get_action("resource_show")(context, {"id": res_id})
+    csv_res = toolkit.get_action("resource_show")(context, {"id": res_id})
     log.debug("Annotating: {}".format(csv_res["url"]))
     # log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
 
@@ -93,9 +86,16 @@ def annotate_csv(
         )
 
         # delete the datastore created from datapusher
-        delete_datastore_resource(csv_res["id"], s)
+        try:
+            toolkit.get_action("datastore_delete")(
+                {"ignore_auth": True}, {"id": csv_res['id'], 'force': True}
+            )
+            log.debug("Datastore of resource {} deleted.".format(csv_res['id']))
+        except toolkit.ObjectNotFound:
+            pass
         # use csvw metadata to readout the cvs
         parse = CSVWtoRDF(meta_data, csv_data)
+        log.debug(parse.tables)
         # pick table one, can only put one table to datastore
         if len(parse.tables) > 0:
             table_key = next(iter(parse.tables))
@@ -137,8 +137,13 @@ def transform_csv(
     # url = '{ckan}/dataset/{pkg}/resource/{res_id}/download/{filename}'.format(
     #         ckan=CKAN_URL, pkg=dataset_id, res_id=res_id, filename=res_url)
     context = {"session": model.meta.create_local_session(), "ignore_auth": True}
+    CSVTOCSVW_TOKEN = toolkit.config.get("ckanext.csvtocsvw.ckan_token")
+    SSL_VERIFY = toolkit.config.get("ckanext.csvtocsvw.ssl_verify")
+    if not SSL_VERIFY:
+        requests.packages.urllib3.disable_warnings()
+
     metadata = {
-        "ckan_url": CKAN_URL,
+        "ckan_url": toolkit.config.get("ckan.site_url"),
         "resource_id": res_id,
         "task_created": last_updated,
         "original_url": res_url,
@@ -148,7 +153,7 @@ def transform_csv(
     job_dict = dict(metadata=metadata, status="running", job_info=job_info)
     errored = False
     callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
-    metadata_res = get_action("resource_show")(context, {"id": res_id})
+    metadata_res = toolkit.get_action("resource_show")(context, {"id": res_id})
     if metadata_res:
         filename, filedata, mime_type = csvw_to_rdf(
             res_url, format="turtle", authorization=CSVTOCSVW_TOKEN
@@ -178,16 +183,6 @@ def transform_csv(
     return "error" if errored else None
 
 
-def get_url(action):
-    """
-    Get url for ckan action
-    """
-    if not urlsplit(CKAN_URL).scheme:
-        ckan_url = "http://" + CKAN_URL.lstrip("/")
-    ckan_url = CKAN_URL.rstrip("/")
-    return "{ckan_url}/api/3/action/{action}".format(ckan_url=ckan_url, action=action)
-
-
 import itertools
 
 
@@ -211,18 +206,6 @@ def chunky(items, num_items_per_chunk):
         chunk_is_the_last_one = not next_chunk
         yield chunk, chunk_is_the_last_one
         chunk = next_chunk
-
-
-def delete_datastore_resource(resource_id, session):
-    delete_url = get_url("datastore_delete")
-    res = session.post(delete_url, json={"id": resource_id, "force": True})
-    if res.status_code != 200:
-        log.debug(res.content)
-        log.debug(
-            "Deleting existing datastore of resource {} failed.".format(resource_id)
-        )
-    else:
-        log.debug("Datastore of resource {} deleted.".format(resource_id))
 
 
 class DatastoreEncoder(json.JSONEncoder):
@@ -250,7 +233,8 @@ def send_resource_to_datastore(
         "calculate_record_count": is_it_the_last_chunk,
     }
     # log.debug(request)
-    url = get_url("datastore_create")
+    ckan_url=toolkit.config.get("ckan.site_url")
+    url = ckan_url+toolkit.url_for('api.action',logic_function='datastore_create')
     res = session.post(url, json=request)
     if res.status_code != 200:
         log.debug(res.content)
@@ -295,7 +279,7 @@ def callback_csvtocsvw_hook(result_url, api_key, job_dict):
         result = requests.post(
             result_url,
             data=json.dumps(job_dict, cls=DatetimeJsonEncoder),
-            verify=SSL_VERIFY,
+            verify=toolkit.config.get("ckanext.csvtocsvw.ssl_verify"),
             headers=headers,
         )
     except requests.ConnectionError:
@@ -336,12 +320,22 @@ def file_upload(
             }
         )
     headers["Content-Type"] = mp_encoder.content_type
+    ckan_url=toolkit.config.get("ckan.site_url")
     if res_id:
-        url = expand_url(CKAN_URL, "/api/action/resource_patch")
+        url = ckan_url+toolkit.url_for('api.action',logic_function='resource_patch')
     else:
-        url = expand_url(CKAN_URL, "/api/action/resource_create")
-    response = requests.post(url, headers=headers, data=mp_encoder, verify=SSL_VERIFY)
-    response.raise_for_status()
+        url = ckan_url+toolkit.url_for('api.action',logic_function='resource_create')
+    try:
+        response = requests.post(url, headers=headers, data=mp_encoder, verify=toolkit.config.get("ckanext.csvtocsvw.ssl_verify"))
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as http_err:
+        log.debug(f"HTTP error occurred: {http_err}")  # Handle HTTP errors
+        log.debug(f"Status Code: {http_err.response.status_code}")  # Optionally includes the status code
+        log.debug(f"Response Body: {http_err.response.text}")  # Optionally includes the response body
+    except requests.exceptions.RequestException as req_err:
+        log.debug(f"Request error occurred: {req_err}")  # Handle other request-related errors
+    except Exception as err:
+        log.debug(f"An error occurred: {err}")  # Handle any other errors
     r = response.json()
     log.debug("file {} uploaded at: {}".format(filename, r))
     return r

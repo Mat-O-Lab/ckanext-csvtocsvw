@@ -1,6 +1,4 @@
 import ckanext.datastore.logic.auth as auth
-import ckan.plugins as p
-
 
 def csvtocsvw_annotate(context, data_dict):
     if "resource" in data_dict and data_dict["resource"].get("package_id"):

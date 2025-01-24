@@ -1,8 +1,8 @@
-
+import ckan.plugins.toolkit as toolkit
 
 def csvtocsvw_show_tools(resource):
-    from ckanext.csvtocsvw.plugin import DEFAULT_FORMATS
-    if resource['format'].lower() in DEFAULT_FORMATS:
+    default_formats = toolkit.config.get("ckanext.csvtocsvw.formats").lower().split()
+    if resource['format'].lower() in default_formats:
         return True
     else:
         False

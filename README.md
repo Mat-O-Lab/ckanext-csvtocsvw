@@ -11,15 +11,20 @@ Point at it through env variables.
 Also needed is a Api Token for an account with the right privaledges to make the background job work on private datasets and ressources.
 
 ```bash
-CKAN_CSVTOCSVW_URL=http://${CSVTOCSVW_HOST}:${CSVTOCSVW_APP_PORT}
-CSVW_API_TOKEN=${CKAN_API_TOKEN}
+CKANINI__CKANEXT__CSVTOCSVW_URL=http://${CSVTOCSVW_HOST}:${CSVTOCSVW_APP_PORT}
+CKANINI__CKANEXT__CSVTOCSVW__CKAN_TOKEN=${CKAN_API_TOKEN}
 ```
 
 You can set the default formats to annotate by setting the env variable CSVTOCSVW_FORMATS for example
 ```bash
-CKANINI__CSVTOCSVW__FORMATS="csv txt asc"
+CKANINI__CKANEXT__CSVTOCSVW__FORMATS="csv txt asc"
 ```
 else it will react to the following  formats: "csv", "txt", "asc", "tsv"
+
+If you need to process files that are not hosted through https (CKAN is not ssl configured), you can disable ssl verification
+```bash
+CKANINI__CKANEXT__CSVTOCSVW__SSL_VERIFY=False
+```
 
 ## Purpose
 Reacts to CSV files uploaded. DEFAULT_FORMATS are "csv; txt" It creates two to sites for each resource.
