@@ -45,20 +45,15 @@ def annotate_csv(
 
     csv_res = toolkit.get_action("resource_show")(context, {"id": res_id})
     log.debug("Annotating: {}".format(csv_res["url"]))
-    # log.debug("Using Token: {}".format(CSVTOCSVW_TOKEN))
 
     s = requests.Session()
     s.verify = SSL_VERIFY
     s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
-    # log.debug("Using: {}".format(CSVTOCSVW_TOKEN))
-
     csv_data = s.get(csv_res["url"]).content
-    # prefix, suffix = csv_res["url"].rsplit("/", 1)[-1].rsplit(".", 1)
     filename, meta_data, mime_type = annotate_csv_uri(
         csv_res["url"], authorization=CSVTOCSVW_TOKEN
     )
     if meta_data:
-        # Upload resource to CKAN as a new/updated resource
         prefix, suffix = filename.rsplit(".", 1)
         if suffix == "json" and "ld+json" in mime_type:
             log.debug(
@@ -69,12 +64,14 @@ def annotate_csv(
             filename = prefix + ".jsonld"
         else:
             filename = prefix + "." + suffix
+
         metadata_res = resource_search(dataset_id, filename)
         if metadata_res:
             log.debug("Found existing resource {}".format(metadata_res))
             existing_id = metadata_res["id"]
         else:
             existing_id = None
+
         res = file_upload(
             dataset_id=dataset_id,
             filename=filename,
@@ -93,24 +90,16 @@ def annotate_csv(
             log.debug("Datastore of resource {} deleted.".format(csv_res['id']))
         except toolkit.ObjectNotFound:
             pass
-        # use csvw metadata to readout the cvs
         parse = CSVWtoRDF(meta_data, csv_data)
-        log.debug(parse.tables)
-        # pick table one, can only put one table to datastore
         if len(parse.tables) > 0:
             table_key = next(iter(parse.tables))
             table_data = parse.tables[table_key]
             headers = simple_columns(table_data["columns"])
-            log.debug(headers)
-
             column_names = [column["id"] for column in headers]
             table_records = list()
             for line in table_data["lines"]:
-                record = dict()
-                for i, value in enumerate(line[1:]):
-                    record[column_names[i]] = value
+                record = dict(zip(column_names, line[1:]))
                 table_records.append(record)
-            # log.debug(table_records[:3])
             count = 0
             for i, chunk in enumerate(chunky(table_records, CHUNK_INSERT_ROWS)):
                 records, is_it_the_last_chunk = chunk
@@ -123,6 +112,9 @@ def annotate_csv(
                 send_resource_to_datastore(
                     csv_res["id"], headers, records, s, is_it_the_last_chunk
                 )
+    else:
+        log.debug("No data found.")
+        errored=True
     if not errored:
         job_dict["status"] = "complete"
     else:
@@ -237,7 +229,6 @@ def send_resource_to_datastore(
     url = ckan_url+toolkit.url_for('api.action',logic_function='datastore_create')
     res = session.post(url, json=request)
     if res.status_code != 200:
-        log.debug(res.content)
         log.debug("Create of datastore for resource {} failed.".format(resource_id))
     else:
         log.debug("Datastore of resource {} created.".format(resource_id))
