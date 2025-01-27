@@ -29,11 +29,31 @@
   <h1 >{% block form_title %}{{ _('Transform Status') }}{% endblock %}</h1>
   {% block form %}
   <form method="post" action="{{ action }}" class="csvtocsvw-form">
-    {{ h.csrf_input() }} 
-    <button class="btn btn-primary {% if not
-      meta_res %}disabled{% endif %}" name="save" type="submit">
-      <i class="fa fa-play"></i> {{ _('Run Transformation') }}
-    </button>
+    {{ h.csrf_input() }}
+    <div class="col-12 d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center">
+        <button class="btn btn-primary {% if not
+          meta_res or service_status %}disabled{% endif %}" name="save" type="submit">
+          <i class="fa fa-play"></i> {{ _('Run Transformation') }}
+        </button>
+        <!-- Status Indicator Section -->
+      </div>
+      <style>
+        .indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: red;
+            /* Default: Service unavailable */
+        }
+      </style>
+      <div class="d-flex align-items-center">
+          <div id="service-indicator" class="indicator" data-bs-toggle="tooltip"
+              title="{{ _('The status of the service (Green means available, Red means unavailable)') }}" {% if
+              service_status %} style="background-color: green;" {% endif %}>
+          </div>
+      </div>
+    </div>
   </form>
   {% endblock %}
   {{task}}

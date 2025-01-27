@@ -12,7 +12,7 @@ from ckan.common import _
 from flask import Blueprint
 from flask.views import MethodView
 from ckanext.csvtocsvw.tasks import resource_search
-
+from ckanext.csvtocsvw.helpers import service_available
 
 log = __import__("logging").getLogger(__name__)
 
@@ -76,6 +76,7 @@ class AnnotateView(MethodView):
                 "pkg_dict": pkg_dict,
                 "resource": resource,
                 "status": status,
+                "service_status": service_available(),
             },
         )
 
@@ -153,6 +154,7 @@ class TransformView(MethodView):
                 "meta_res": meta_res,
                 "resource": resource,
                 "status": status,
+                "service_status": service_available(),
             },
         )
 
