@@ -1,0 +1,9 @@
+{% ckan_extends %}
+
+{% block action_manage %}
+{{ super() }}
+{% if h.csvtocsvw_show_tools(res) %}
+<li>{% link_for _('Annotate'), named_route='csvtocsvw.csv_annotate', id=pkg.name, resource_id=res.id, class_='btn btn-secondary', icon='play' %}</li>
+<li>{% link_for _('Transform'), named_route='csvtocsvw.csv_transform', id=pkg.name, resource_id=res.id, class_='btn btn-secondary', icon='play' %}</li>
+{% endif %}
+{% endblock action_manage %}
