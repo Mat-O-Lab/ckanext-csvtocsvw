@@ -19,6 +19,7 @@ setup(
     version=environ.get('VERSION', '0.0.0'),
     description="""Extension automatically generating csvw metadata for uploaded textual tabular data.""",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     # The project's main homepage.
     url="https://github.com/Mat-O-Lab/ckanext-csvtocsvw",
     # Author details
