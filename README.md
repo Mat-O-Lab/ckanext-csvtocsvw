@@ -60,17 +60,17 @@ Suggested values:
    For example installing any non-Python dependencies or adding any required
    config settings.
 
-To install ckanext-csvtocsvw:
+To install the extension:
 
 1. Activate your CKAN virtual environment, for example:
 ```bash
      . /usr/lib/ckan/default/bin/activate
 ```
-2. Clone the source and install it on the virtualenv
+2. Use pip to install package
 ```bash
    pip install ckanext-csvtocsvw
 ```
-3. Add `csvtocsvw` to the `ckan.plugins` setting in your CKAN
+3. Add `sso` to the `ckan.plugins` setting in your CKAN
    config file (by default the config file is located at
    `/etc/ckan/default/ckan.ini`).
 
@@ -78,7 +78,6 @@ To install ckanext-csvtocsvw:
 ```bash
      sudo service apache2 reload
 ```
-
 
 ## Config settings
 
