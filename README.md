@@ -64,11 +64,11 @@ To install the extension:
 
 1. Activate your CKAN virtual environment, for example:
 ```bash
-     . /usr/lib/ckan/default/bin/activate
+. /usr/lib/ckan/default/bin/activate
 ```
 2. Use pip to install package
 ```bash
-   pip install ckanext-csvtocsvw
+pip install ckanext-csvtocsvw
 ```
 3. Add `csvtocsvw` to the `ckan.plugins` setting in your CKAN
    config file (by default the config file is located at
@@ -76,25 +76,26 @@ To install the extension:
 
 4. Restart CKAN. For example, if you've deployed CKAN with Apache on Ubuntu:
 ```bash
-     sudo service apache2 reload
+sudo service apache2 reload
 ```
 
 ## Developer installation
 
 To install ckanext-csvtocsvw for development, activate your CKAN virtualenv and
 do:
-
-    git clone https://github.com/Mat-O-Lab/ckanext-csvtocsvw.git
-    cd ckanext-csvtocsvw
-    python setup.py develop
-    pip install -r dev-requirements.txt
-
+```bash
+git clone https://github.com/Mat-O-Lab/ckanext-csvtocsvw.git
+cd ckanext-csvtocsvw
+python setup.py develop
+pip install -r dev-requirements.txt
+```
 
 ## Tests
 
 To run the tests, do:
-
-    pytest --ckan-ini=test.ini
+```bash
+pytest --ckan-ini=test.ini
+```
 
 ## License
 
