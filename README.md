@@ -63,23 +63,21 @@ Suggested values:
 To install ckanext-csvtocsvw:
 
 1. Activate your CKAN virtual environment, for example:
-
-     . /usr/lib/ckan/default/bin/activate
-
+```bash
+     . /usr/lib/ckan/default/bin/activate
+```
 2. Clone the source and install it on the virtualenv
-
-    git clone https://github.com/Mat-O-Lab/ckanext-csvtocsvw.git
-    cd ckanext-csvtocsvw
-    pip install -e .
-	pip install -r requirements.txt
-
+```bash
+   pip install ckanext-csvtocsvw
+```
 3. Add `csvtocsvw` to the `ckan.plugins` setting in your CKAN
-   config file (by default the config file is located at
-   `/etc/ckan/default/ckan.ini`).
+   config file (by default the config file is located at
+   `/etc/ckan/default/ckan.ini`).
 
-4. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu:
-
-     sudo service apache2 reload
+4. Restart CKAN. For example, if you've deployed CKAN with Apache on Ubuntu:
+```bash
+     sudo service apache2 reload
+```
 
 
 ## Config settings
