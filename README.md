@@ -33,11 +33,6 @@ Reacts to CSV files uploaded. DEFAULT_FORMATS are "csv; txt" It creates two to s
 The plugins default behavior includes a trigger to csv file uploads, so it runs annotation automatically on upload.
 The transformation is a bonus feature and outputs standard tabular data as mentioned in the CSVW documentation of the W3C. It must be triggered manually.
 
-**TODO:** For example, you might want to mention here which versions of CKAN this
-extension works with.
-
-If your extension works across different versions you can add the following table:
-
 Compatibility with core CKAN versions:
 
 | CKAN version    | Compatible?   |
@@ -46,8 +41,6 @@ Compatibility with core CKAN versions:
 | 2.10             | yes    |
 | 2.11            | yes    |
 
-Suggested values:
-
 * "yes"
 * "not tested" - I can't think of a reason why it wouldn't work
 * "not yet" - there is an intention to get it working
@@ -55,10 +48,6 @@ Suggested values:
 
 
 ## Installation
-
-**TODO:** Add any additional install steps to the list below.
-   For example installing any non-Python dependencies or adding any required
-   config settings.
 
 To install the extension:
 
