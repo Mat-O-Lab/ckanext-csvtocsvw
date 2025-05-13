@@ -11,6 +11,9 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
+
 setup(
     name="""ckanext-csvtocsvw""",
     # Versions should comply with PEP440.  For a discussion on single-sourcing
@@ -20,6 +23,7 @@ setup(
     description="""Extension automatically generating csvw metadata for uploaded textual tabular data.""",
     long_description=long_description,
     long_description_content_type="text/markdown",
+    install_requires=requirements,
     # The project's main homepage.
     url="https://github.com/Mat-O-Lab/ckanext-csvtocsvw",
     # Author details
