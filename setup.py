@@ -44,5 +44,7 @@ setup(
     entry_points="""
         [ckan.plugins]
         csvtocsvw=ckanext.csvtocsvw.plugin:CsvtocsvwPlugin
+        [babel.extractors]
+        ckan = ckan.lib.extract:extract_ckan
     """,
 )
