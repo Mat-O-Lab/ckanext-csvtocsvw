@@ -1,0 +1,110 @@
+# Translations template for ckanext-csvtocsvw.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the ckanext-csvtocsvw
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ckanext-csvtocsvw 0.0.0\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-05-13 14:22+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+#: ckanext/csvtocsvw/views.py:27 ckanext/csvtocsvw/views.py:55
+#: ckanext/csvtocsvw/views.py:101
+msgid "Not authorized to see this page"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:12
+#: ckanext/csvtocsvw/templates/package/resource_read.html:6
+#: ckanext/csvtocsvw/templates/package/snippets/resource_item.html:12
+msgid "Annotate"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:18
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:18
+msgid "View resource"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:23
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:23
+msgid "Edit resource"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:25
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:25
+msgid "Views"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:29
+msgid "Annotation Status"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:37
+msgid "Run Annotation"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:52
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:52
+msgid "The status of the service (Green means available, Red means unavailable)"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:63
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:64
+msgid "Upload error:"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:69
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:71
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:70
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:72
+msgid "Error:"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:80
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:81
+msgid "Error traceback:"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:93
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:94
+msgid "Status"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:97
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:98
+msgid "Last updated"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:101
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:102
+msgid "Never"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:107
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:108
+msgid "Transformation Log"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:12
+#: ckanext/csvtocsvw/templates/package/resource_read.html:7
+#: ckanext/csvtocsvw/templates/package/snippets/resource_item.html:21
+msgid "Transform"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:29
+msgid "Transform Status"
+msgstr ""
+
+#: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:37
+msgid "Run Transformation"
+msgstr ""
+
