@@ -38,7 +38,7 @@ msgstr "Ressource anzeigen"
 #: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:23
 #: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:23
 msgid "Edit resource"
-msgstr "Ressource bearbeitem"
+msgstr "Ressource bearbeiten"
 
 #: ckanext/csvtocsvw/templates/csvtocsvw/csv_annotate.html:25
 #: ckanext/csvtocsvw/templates/csvtocsvw/csv_transform.html:25
