@@ -110,6 +110,14 @@ def parse_csv_from_url_to_list(
     num_cols = len(columns) - 1
     column_names = [column["id"] for column in columns]
     types = {column["id"]: column["pandas_type"] for column in columns}
+    # pre-compute nrows: stop at the first blank line after headers so pandas
+    # never encounters section markers like "[Daten]" with strict dtypes
+    all_lines = file_data.decode(encoding).splitlines()
+    data_lines = all_lines[num_header_rows + skiprows:]
+    nrows = next(
+        (i for i, l in enumerate(data_lines) if l.strip() == ""),
+        len(data_lines),
+    )
     # print(delimiter,num_header_rows+skiprows)
     table_data = pd.read_csv(
         file_string,
@@ -119,17 +127,13 @@ def parse_csv_from_url_to_list(
         names=column_names,
         # usecols=column_names,
         skiprows=num_header_rows + skiprows,
+        nrows=nrows,
         encoding=encoding,
         skip_blank_lines=False,
         # on_bad_lines=test_bad_line,
         engine="python",
     )
-    # remove data after blank line
     logging.debug(table_data.dtypes)
-    blank_df = table_data.loc[table_data.isnull().all(1)]
-    if len(blank_df) > 0:
-        first_blank_index = blank_df.index[0]
-        table_data = table_data[:first_blank_index]
     # replace decimal seperator in numeric data concerning locale - use us_uk notation with .
     # table_data.map(lambda x: locale.atof(str(x)) if ',' in str(x) else str(x),inplace=True)
     table_data = table_data.map(
