@@ -1,5 +1,5 @@
 [![Tests](https://github.com/Mat-O-Lab/ckanext-csvtocsvw/actions/workflows/test.yml/badge.svg)](https://github.com/Mat-O-Lab/ckanext-csvtocsvw/actions/workflows/test.yml)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19108090.svg)](https://doi.org/10.5281/zenodo.19108090)
 
 # ckanext-csvtocsvw
 
