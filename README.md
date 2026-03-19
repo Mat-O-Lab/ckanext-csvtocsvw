@@ -1,4 +1,5 @@
 [![Tests](https://github.com/Mat-O-Lab/ckanext-csvtocsvw/actions/workflows/test.yml/badge.svg)](https://github.com/Mat-O-Lab/ckanext-csvtocsvw/actions/workflows/test.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
 
 # ckanext-csvtocsvw
 
@@ -6,7 +7,7 @@ Extension automatically generating csvw metadata for uploaded textual tabular da
 **should be used as replacement for datapusher**
 
 ## Requirements
-Needs a running instance of the [CSVToCSVW Application](https://github.com/Mat-O-Lab/CSVToCSVW). 
+Needs a running instance of the [CSVToCSVW Application](https://github.com/Mat-O-Lab/CSVToCSVW).
 Point at it through env variables.
 Also needed is a Api Token for an account with the right privaledges to make the background job work on private datasets and ressources.
 
@@ -37,14 +38,9 @@ Compatibility with core CKAN versions:
 
 | CKAN version    | Compatible?   |
 | --------------- | ------------- |
-| 2.9 and arlier  | not tested    |
-| 2.10             | yes    |
-| 2.11            | yes    |
-
-* "yes"
-* "not tested" - I can't think of a reason why it wouldn't work
-* "not yet" - there is an intention to get it working
-* "no"
+| 2.9 and earlier | not tested    |
+| 2.10            | ✓ CI tested   |
+| 2.11            | ✓ CI tested   |
 
 
 ## Installation
@@ -60,8 +56,8 @@ To install the extension:
 pip install ckanext-csvtocsvw
 ```
 3. Add `csvtocsvw` to the `ckan.plugins` setting in your CKAN
-   config file (by default the config file is located at
-   `/etc/ckan/default/ckan.ini`).
+   config file (by default the config file is located at
+   `/etc/ckan/default/ckan.ini`).
 
 4. Restart CKAN. For example, if you've deployed CKAN with Apache on Ubuntu:
 ```bash
@@ -70,13 +66,11 @@ sudo service apache2 reload
 
 ## Developer installation
 
-To install ckanext-csvtocsvw for development, activate your CKAN virtualenv and
-do:
+To install ckanext-csvtocsvw for development, activate your CKAN virtualenv and do:
 ```bash
 git clone https://github.com/Mat-O-Lab/ckanext-csvtocsvw.git
 cd ckanext-csvtocsvw
-python setup.py develop
-pip install -r dev-requirements.txt
+pip install -e ".[dev]"
 ```
 
 ## Tests
@@ -86,10 +80,24 @@ To run the tests, do:
 pytest --ckan-ini=test.ini
 ```
 
+## Citation
+
+If you use this software, please cite it. GitHub shows a **"Cite this repository"** button (top right of the repo page) that exports the [CITATION.cff](CITATION.cff) in APA or BibTeX format.
+
+After the first Zenodo release, a DOI-specific BibTeX entry will be available on the Zenodo record. Until then:
+
+```bibtex
+@software{hanke_ckanext_csvtocsvw,
+  author       = {Hanke, Thomas},
+  title        = {ckanext-csvtocsvw},
+  url          = {https://github.com/Mat-O-Lab/ckanext-csvtocsvw},
+  license      = {AGPL-3.0-or-later},
+}
+```
+
 ## License
 
 [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html)
 
-# Acknowledgments
+## Acknowledgments
 The authors would like to thank the Federal Government and the Heads of Government of the Länder for their funding and support within the framework of the [Platform Material Digital](https://www.materialdigital.de) consortium. Funded by the German [Federal Ministry of Education and Research (BMBF)](https://www.bmbf.de/bmbf/en/) through the [MaterialDigital](https://www.bmbf.de/SharedDocs/Publikationen/de/bmbf/5/31701_MaterialDigital.pdf?__blob=publicationFile&v=5) Call in Project [KupferDigital](https://www.materialdigital.de/project/1) - project id 13XP5119.
-

@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: ckanext-csvtocsvw
+abstract: >-
+  A CKAN extension that automatically generates CSVW (CSV on the Web) metadata
+  for uploaded textual tabular data files (CSV, TSV, TXT, ASC, LIS). It annotates
+  each CSV resource with a JSON-LD metadata file, imports the first documented
+  table into the CKAN datastore, and can transform the full table content to RDF
+  using the CSVW W3C standard. Intended as a replacement for the default
+  datapusher.
+authors:
+  - family-names: Hanke
+    given-names: Thomas
+    affiliation: Fraunhofer Institute for Mechanics of Materials IWM
+    email: thomas.hanke@iwm.fraunhofer.de
+    orcid: "https://orcid.org/0000-0003-1649-6832"
+repository-code: https://github.com/Mat-O-Lab/ckanext-csvtocsvw
+url: https://github.com/Mat-O-Lab/ckanext-csvtocsvw
+license: AGPL-3.0-or-later
+keywords:
+  - CKAN
+  - CSVW
+  - CSV
+  - JSON-LD
+  - RDF
+  - metadata
+  - datastore
+  - FAIR data
+  - research data management
+  - materials science
+  - Mat-O-Lab
+  - open data
+  - data portal
+  - Python
