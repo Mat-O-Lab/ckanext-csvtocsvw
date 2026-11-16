@@ -20,9 +20,25 @@ from ckan.lib.jobs import DEFAULT_QUEUE_NAME
 from dateutil.parser import isoparse as parse_iso_date
 from dateutil.parser import parse as parse_date
 
+from ckanext.csvtocsvw import db
 from ckanext.csvtocsvw.tasks import annotate_csv, transform_csv
 
 log = __import__("logging").getLogger(__name__)
+
+
+def _add_pending_job(job, callback_url, res_id, task_key):
+    """Record the queued job in the job db, so its log can be shown later."""
+    try:
+        db.init()
+        db.add_pending_job(
+            job.id,
+            job_type="csvtocsvw",
+            metadata={"resource_id": res_id, "task_key": task_key},
+            result_url=callback_url,
+        )
+    except Exception as e:
+        # the job db only serves the log display, never block the job itself
+        log.warning("Could not record job %s in the job db: %s", job.id, e)
 
 
 def csvtocsvw_annotate(context: Context, data_dict: dict[str, Any]) -> dict[str, Any]:
@@ -135,6 +151,7 @@ def enqueue_csvw_annotate(
         title='csvtocsvw  {} "{}" {}'.format(operation, res_name, res_url),
         queue=queue,
     )
+    _add_pending_job(job, callback_url, res_id, "csvtocsvw_annotate")
     return job
 
 
@@ -267,6 +284,7 @@ def enqueue_csvw_transform(
         title='csvtocsvw  {} "{}" {}'.format(operation, res_name, res_url),
         queue=queue,
     )
+    _add_pending_job(job, callback_url, res_id, "csvtocsvw_transform")
     return job
 
 
@@ -366,6 +384,19 @@ def csvtocsvw_hook(context, data_dict):
             )
             resubmit = True
 
+    # mark the job finished in the job db
+    if status in ("complete", "errored", "error"):
+        try:
+            job_id = json.loads(task["value"]).get("job_id")
+            if job_id:
+                db.init()
+                if status == "complete":
+                    db.mark_job_as_completed(job_id)
+                else:
+                    db.mark_job_as_errored(job_id, data_dict.get("error") or status)
+        except Exception as e:
+            log.warning("Could not update job db: %s", e)
+
     context["ignore_auth"] = True
     toolkit.get_action("task_status_update")(context, task)
 
@@ -374,8 +405,57 @@ def csvtocsvw_hook(context, data_dict):
         toolkit.get_action("csvtocsvwm_transform")(context, {"resource_id": res_id})
 
 
+def csvtocsvw_status(context: Context, data_dict: dict[str, Any]) -> dict[str, Any]:
+    """Get the status and job log of the annotate or transform task of a resource.
+
+    :param resource_id: the resource the task belongs to (the csv resource for
+        annotate, the metadata json-ld resource for transform)
+    :type resource_id: string
+    :param task_key: ``csvtocsvw_annotate`` (default) or ``csvtocsvw_transform``
+    :type task_key: string
+    """
+    res_id = toolkit.get_or_bust(data_dict, "resource_id")
+    task_key = data_dict.get("task_key", "csvtocsvw_annotate")
+    if task_key not in ("csvtocsvw_annotate", "csvtocsvw_transform"):
+        raise toolkit.ValidationError({"task_key": ["Invalid task key"]})
+    toolkit.check_access("resource_show", context, {"id": res_id})
+
+    try:
+        task = toolkit.get_action("task_status_show")(
+            {"ignore_auth": True},
+            {"entity_id": res_id, "task_type": "csvtocsvw", "key": task_key},
+        )
+    except toolkit.ObjectNotFound:
+        return {}
+    try:
+        error = json.loads(task["error"])
+    except (ValueError, TypeError):
+        # this happens occasionally, such as when the job times out
+        error = task["error"]
+    job_id = json.loads(task["value"] or "{}").get("job_id")
+    status = {
+        "status": task["state"],
+        "job_id": job_id,
+        "job_url": None,
+        "last_updated": task["last_updated"],
+        "error": error,
+    }
+    if job_id:
+        db.init()
+        db_job = db.get_job(job_id)
+        if db_job:
+            for entry in db_job.get("logs") or []:
+                if isinstance(entry.get("timestamp"), datetime.datetime):
+                    entry["timestamp"] = entry["timestamp"].isoformat()
+            # keep the task_status state; take logs and metadata from the db
+            status["logs"] = db_job.get("logs") or []
+            status["metadata"] = db_job.get("metadata")
+    return status
+
+
 def get_actions():
     actions = {
+        "csvtocsvw_status": csvtocsvw_status,
         "csvtocsvw_annotate": csvtocsvw_annotate,
         "csvtocsvw_transform": csvtocsvw_transform,
         "csvtocsvw_hook": csvtocsvw_hook,

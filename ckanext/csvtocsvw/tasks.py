@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import json
+import logging
 from urllib.parse import urljoin, urlparse, urlsplit
 
 import ckan.plugins.toolkit as toolkit
@@ -9,7 +10,9 @@ import ckanapi.datapackage
 import requests
 from ckan import model
 from requests_toolbelt.multipart.encoder import MultipartEncoder
+from rq import get_current_job
 
+from ckanext.csvtocsvw import db
 from ckanext.csvtocsvw.annotate import (
     annotate_csv_upload,
     annotate_csv_uri,
@@ -20,6 +23,55 @@ from ckanext.csvtocsvw.csvw_parser import CSVWtoRDF, simple_columns
 log = __import__("logging").getLogger(__name__)
 
 CHUNK_INSERT_ROWS = 250
+
+
+class StoringHandler(logging.Handler):
+    """A handler that stores the logging records of a job in the database."""
+
+    def __init__(self, task_id, input):
+        logging.Handler.__init__(self)
+        self.task_id = task_id
+        self.input = input
+
+    def emit(self, record):
+        try:
+            # begin() commits on success; SQLAlchemy 2 does not autocommit.
+            with db.ENGINE.begin() as conn:
+                conn.execute(
+                    db.LOGS_TABLE.insert().values(
+                        job_id=self.task_id,
+                        timestamp=datetime.datetime.utcnow(),
+                        message=str(record.getMessage()),
+                        level=str(record.levelname),
+                        module=str(record.module),
+                        funcName=str(record.funcName),
+                        lineno=record.lineno,
+                    )
+                )
+        except Exception:
+            pass
+
+
+def _job_logger(job_dict):
+    """Return a logger whose records are stored in the job db for this job.
+
+    Returns (logger, cleanup); call cleanup() when the job is done.
+    """
+    job = get_current_job()
+    job_id = job.id if job else "no-job"
+    db.init()
+    handler = StoringHandler(job_id, job_dict)
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger = logging.getLogger("ckanext.csvtocsvw.job.{}".format(job_id))
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+
+    def cleanup():
+        logger.removeHandler(handler)
+
+    return logger, cleanup
+
 
 
 def annotate_csv(
@@ -43,95 +95,108 @@ def annotate_csv(
     job_info = dict()
     job_dict = dict(metadata=metadata, status="running", job_info=job_info)
     errored = False
+    logger, cleanup = _job_logger(job_dict)
     callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
 
-    csv_res = toolkit.get_action("resource_show")(context, {"id": res_id})
-    log.debug("Annotating: {}".format(csv_res["url"]))
+    try:
+        csv_res = toolkit.get_action("resource_show")(context, {"id": res_id})
+        logger.info("Annotating: {}".format(csv_res["url"]))
 
-    s = requests.Session()
-    s.verify = SSL_VERIFY
-    s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
-    csv_data = s.get(csv_res["url"]).content
-    filename, meta_data, mime_type = annotate_csv_uri(
-        csv_res["url"], authorization=CSVTOCSVW_TOKEN
-    )
-    if meta_data:
-        prefix, suffix = filename.rsplit(".", 1)
-        if suffix == "json" and "ld+json" in mime_type:
-            log.debug(
-                "{}.{} {} is json-ld:{}".format(
-                    prefix, suffix, mime_type, "ld+json" in mime_type
-                )
-            )
-            filename = prefix + ".jsonld"
-        else:
-            filename = prefix + "." + suffix
-
-        metadata_res = resource_search(
-            context,
-            dataset_id,
-            name=filename,
-            hadPrimarySource=csv_res["url"],
+        s = requests.Session()
+        s.verify = SSL_VERIFY
+        s.headers.update({"Authorization": CSVTOCSVW_TOKEN})
+        csv_data = s.get(csv_res["url"]).content
+        logger.debug("Downloaded {} bytes".format(len(csv_data)))
+        filename, meta_data, mime_type = annotate_csv_uri(
+            csv_res["url"], authorization=CSVTOCSVW_TOKEN
         )
-        if metadata_res:
-            log.debug("Found existing resource {}".format(metadata_res))
-            existing_id = metadata_res["id"]
-        else:
-            existing_id = None
-
-        res = file_upload(
-            dataset_id=dataset_id,
-            filename=filename,
-            filedata=BytesIO(meta_data),
-            res_id=existing_id,
-            format="json-ld",
-            mime_type=mime_type,
-            extras={
-                "hadPrimarySource": csv_res["url"],
-                "wasGeneratedBy": toolkit.config.get("ckanext.csvtocsvw.csvtocsvw_url")
-                + "/api/annotate?return_type=json-ld",
-            },
-            authorization=CSVTOCSVW_TOKEN,
-        )
-
-        # delete the datastore created from datapusher
-        try:
-            toolkit.get_action("datastore_delete")(
-                {"ignore_auth": True}, {"id": csv_res["id"], "force": True}
-            )
-            log.debug("Datastore of resource {} deleted.".format(csv_res["id"]))
-        except toolkit.ObjectNotFound:
-            pass
-        parse = CSVWtoRDF(meta_data, csv_data)
-        if len(parse.tables) > 0:
-            table_key = next(iter(parse.tables))
-            table_data = parse.tables[table_key]
-            headers = simple_columns(table_data["columns"])
-            column_names = [column["id"] for column in headers]
-            table_records = list()
-            for line in table_data["lines"]:
-                record = dict(zip(column_names, line[1:]))
-                table_records.append(record)
-            count = 0
-            for i, chunk in enumerate(chunky(table_records, CHUNK_INSERT_ROWS)):
-                records, is_it_the_last_chunk = chunk
-                count += len(records)
-                log.info(
-                    "Saving chunk {number} {is_last}".format(
-                        number=i, is_last="(last)" if is_it_the_last_chunk else ""
+        if meta_data:
+            logger.info("Received CSVW metadata ({})".format(mime_type))
+            prefix, suffix = filename.rsplit(".", 1)
+            if suffix == "json" and "ld+json" in mime_type:
+                logger.debug(
+                    "{}.{} {} is json-ld:{}".format(
+                        prefix, suffix, mime_type, "ld+json" in mime_type
                     )
                 )
-                send_resource_to_datastore(
-                    csv_res["id"], headers, records, s, is_it_the_last_chunk
+                filename = prefix + ".jsonld"
+            else:
+                filename = prefix + "." + suffix
+
+            metadata_res = resource_search(
+                context,
+                dataset_id,
+                name=filename,
+                hadPrimarySource=csv_res["url"],
+            )
+            if metadata_res:
+                logger.debug("Found existing resource {}".format(metadata_res["id"]))
+                existing_id = metadata_res["id"]
+            else:
+                existing_id = None
+
+            res = file_upload(
+                dataset_id=dataset_id,
+                filename=filename,
+                filedata=BytesIO(meta_data),
+                res_id=existing_id,
+                format="json-ld",
+                mime_type=mime_type,
+                extras={
+                    "hadPrimarySource": csv_res["url"],
+                    "wasGeneratedBy": toolkit.config.get(
+                        "ckanext.csvtocsvw.csvtocsvw_url"
+                    )
+                    + "/api/annotate?return_type=json-ld",
+                },
+                authorization=CSVTOCSVW_TOKEN,
+            )
+            logger.info(
+                "{} metadata resource {}".format(
+                    "Updated" if existing_id else "Created", filename
                 )
-    else:
-        log.debug("No data found.")
+            )
+
+            # delete the datastore created from datapusher
+            try:
+                toolkit.get_action("datastore_delete")(
+                    {"ignore_auth": True}, {"id": csv_res["id"], "force": True}
+                )
+                logger.debug("Datastore of resource {} deleted.".format(csv_res["id"]))
+            except toolkit.ObjectNotFound:
+                pass
+            parse = CSVWtoRDF(meta_data, csv_data)
+            if len(parse.tables) > 0:
+                table_key = next(iter(parse.tables))
+                table_data = parse.tables[table_key]
+                headers = simple_columns(table_data["columns"])
+                column_names = [column["id"] for column in headers]
+                table_records = list()
+                for line in table_data["lines"]:
+                    record = dict(zip(column_names, line[1:]))
+                    table_records.append(record)
+                count = 0
+                for i, chunk in enumerate(chunky(table_records, CHUNK_INSERT_ROWS)):
+                    records, is_it_the_last_chunk = chunk
+                    count += len(records)
+                    send_resource_to_datastore(
+                        csv_res["id"], headers, records, s, is_it_the_last_chunk
+                    )
+                logger.info("Saved {} rows to the datastore".format(count))
+            logger.info("Annotation complete")
+        else:
+            logger.error("No data found.")
+            errored = True
+    except Exception as e:
+        logger.error("Annotation failed: {}: {}".format(type(e).__name__, e))
         errored = True
-    if not errored:
-        job_dict["status"] = "complete"
-    else:
-        job_dict["status"] = "errored"
-    callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
+        job_dict["error"] = "{}: {}".format(type(e).__name__, e)
+    finally:
+        job_dict["status"] = "errored" if errored else "complete"
+        callback_csvtocsvw_hook(
+            callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict
+        )
+        cleanup()
     return "error" if errored else None
 
 
@@ -156,44 +221,61 @@ def transform_csv(
     job_info = dict()
     job_dict = dict(metadata=metadata, status="running", job_info=job_info)
     errored = False
+    logger, cleanup = _job_logger(job_dict)
     callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
-    metadata_res = toolkit.get_action("resource_show")(context, {"id": res_id})
-    if metadata_res:
-        filename, filedata, mime_type = csvw_to_rdf(
-            metadata_res["url"], format="turtle", authorization=CSVTOCSVW_TOKEN
-        )
-        # upload result to ckan
-        rdf_res = resource_search(
-            context,
-            dataset_id,
-            name=filename,
-            hadPrimarySource=metadata_res["url"],
-        )
-        if rdf_res:
-            existing_id = rdf_res["id"]
-            log.debug("Found existing resources {}".format(rdf_res))
-        else:
-            existing_id = None
-        res = file_upload(
-            dataset_id=dataset_id,
-            filename=filename,
-            filedata=BytesIO(filedata),
-            extras={
-                "hadPrimarySource": res_url,
-                "wasGeneratedBy": toolkit.config.get("ckanext.csvtocsvw.csvtocsvw_url")
-                + "/api/rdf?return_type=turtle",
-            },
-            res_id=existing_id,
-            format=mime_type,
-            mime_type=mime_type,
-            authorization=CSVTOCSVW_TOKEN,
-        )
 
-    if not errored:
-        job_dict["status"] = "complete"
-    else:
-        job_dict["status"] = "errored"
-    callback_csvtocsvw_hook(callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict)
+    try:
+        metadata_res = toolkit.get_action("resource_show")(context, {"id": res_id})
+        if metadata_res:
+            logger.info("Transforming: {}".format(metadata_res["url"]))
+            filename, filedata, mime_type = csvw_to_rdf(
+                metadata_res["url"], format="turtle", authorization=CSVTOCSVW_TOKEN
+            )
+            logger.info("Received RDF ({}, {} bytes)".format(mime_type, len(filedata)))
+            # upload result to ckan
+            rdf_res = resource_search(
+                context,
+                dataset_id,
+                name=filename,
+                hadPrimarySource=metadata_res["url"],
+            )
+            if rdf_res:
+                existing_id = rdf_res["id"]
+                logger.debug("Found existing resource {}".format(rdf_res["id"]))
+            else:
+                existing_id = None
+            res = file_upload(
+                dataset_id=dataset_id,
+                filename=filename,
+                filedata=BytesIO(filedata),
+                extras={
+                    "hadPrimarySource": res_url,
+                    "wasGeneratedBy": toolkit.config.get(
+                        "ckanext.csvtocsvw.csvtocsvw_url"
+                    )
+                    + "/api/rdf?return_type=turtle",
+                },
+                res_id=existing_id,
+                format=mime_type,
+                mime_type=mime_type,
+                authorization=CSVTOCSVW_TOKEN,
+            )
+            logger.info(
+                "{} RDF resource {}".format(
+                    "Updated" if existing_id else "Created", filename
+                )
+            )
+        logger.info("Transformation complete")
+    except Exception as e:
+        logger.error("Transformation failed: {}: {}".format(type(e).__name__, e))
+        errored = True
+        job_dict["error"] = "{}: {}".format(type(e).__name__, e)
+    finally:
+        job_dict["status"] = "errored" if errored else "complete"
+        callback_csvtocsvw_hook(
+            callback_url, api_key=CSVTOCSVW_TOKEN, job_dict=job_dict
+        )
+        cleanup()
     return "error" if errored else None
 
 

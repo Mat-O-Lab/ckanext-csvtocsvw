@@ -17,6 +17,58 @@ from ckanext.csvtocsvw.helpers import service_available
 log = __import__("logging").getLogger(__name__)
 
 
+def _decorate_logs(status):
+    """Add display attributes (icon, css class, relative time) to the job log."""
+    for item in (status or {}).get("logs", []):
+        item["timestamp"] = core_helpers.time_ago_from_timestamp(item["timestamp"])
+        if item["level"] == "DEBUG":
+            item["alertlevel"], item["icon"], item["class"] = "info", "bug-slash", "success"
+        elif item["level"] == "INFO":
+            item["alertlevel"], item["icon"], item["class"] = "info", "check", "success"
+        else:
+            item["alertlevel"], item["icon"], item["class"] = "error", "exclamation", "failure"
+    return status
+
+
+class AnnotateStatusView(MethodView):
+    """JSON status and log of the annotate job (polled by the page)."""
+
+    def get(self, id: str, resource_id: str):
+        try:
+            status = toolkit.get_action("csvtocsvw_status")(
+                {}, {"resource_id": resource_id, "task_key": "csvtocsvw_annotate"}
+            )
+        except toolkit.ObjectNotFound:
+            base.abort(404, "Resource not found")
+        except toolkit.NotAuthorized:
+            base.abort(403, _("Not authorized to see this page"))
+        return {"status": _decorate_logs(status)}
+
+
+class TransformStatusView(MethodView):
+    """JSON status and log of the transform job (polled by the page)."""
+
+    def get(self, id: str, resource_id: str):
+        try:
+            resource = toolkit.get_action("resource_show")({}, {"id": resource_id})
+            meta_res = resource_search(
+                {},
+                id,
+                name=resource["name"].rsplit(".")[0] + "-metadata.jsonld",
+            )
+            status = {}
+            if meta_res:
+                status = toolkit.get_action("csvtocsvw_status")(
+                    {},
+                    {"resource_id": meta_res["id"], "task_key": "csvtocsvw_transform"},
+                )
+        except toolkit.ObjectNotFound:
+            base.abort(404, "Resource not found")
+        except toolkit.NotAuthorized:
+            base.abort(403, _("Not authorized to see this page"))
+        return {"status": _decorate_logs(status)}
+
+
 class AnnotateView(MethodView):
     def post(self, id: str, resource_id: str):
         try:
@@ -76,6 +128,9 @@ class AnnotateView(MethodView):
                 "pkg_dict": pkg_dict,
                 "resource": resource,
                 "status": status,
+                "status_url": toolkit.url_for(
+                    "csvtocsvw.csv_annotate_status", id=id, resource_id=resource_id
+                ),
                 "service_status": service_available(),
             },
         )
@@ -154,10 +209,23 @@ class TransformView(MethodView):
                 "meta_res": meta_res,
                 "resource": resource,
                 "status": status,
+                "status_url": toolkit.url_for(
+                    "csvtocsvw.csv_transform_status", id=id, resource_id=resource_id
+                ),
                 "service_status": service_available(),
             },
         )
 
+
+blueprint.add_url_rule(
+    "/dataset/<id>/resource/<resource_id>/csv_annotate/status",
+    view_func=AnnotateStatusView.as_view(str("csv_annotate_status")),
+)
+
+blueprint.add_url_rule(
+    "/dataset/<id>/resource/<resource_id>/csv_transform/status",
+    view_func=TransformStatusView.as_view(str("csv_transform_status")),
+)
 
 blueprint.add_url_rule(
     "/dataset/<id>/resource/<resource_id>/csv_annotate",

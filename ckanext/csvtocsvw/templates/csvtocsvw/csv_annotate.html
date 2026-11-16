@@ -3,6 +3,11 @@
 {% set logged_in = true if c.userobj else false %}
 {% set res = resource %}
 
+{% block styles %}
+  {{ super() }}
+  {% asset 'csvtocsvw/style' %}
+{% endblock %}
+
 {% block breadcrumb_content_selected %}{% endblock %}
 
 {% block breadcrumb_content %}
@@ -26,6 +31,7 @@
 {% endblock %}
 
 {% block primary_content_inner %}
+  <div id="ajax-status" data-module="csvtocsvw" data-api-url="{{ status_url }}">
   <h1 >{% block form_title %}{{ _('Annotation Status') }}{% endblock %}</h1>
   {% block form %}
   <form method="post" action="{{ action }}" class="csvtocsvw-form">
@@ -91,7 +97,7 @@
       </colgroup>
       <tr>
         <th>{{ _('Status') }}</th>
-        <td>{{status.status}}</td>
+        <td name="status-value">{{status.status}}</td>
       </tr>
       <tr>
         <th>{{ _('Last updated') }}</th>
@@ -103,22 +109,12 @@
       </tr>
     </table>
   
-    {% if status and status.logs %}
-      <h3>{{ _('Transformation Log') }}</h3>
-      {% for item in status.logs|sort(attribute='timestamp') %}
-          {% set level = 'info' if item.level == 'DEBUG' else item.level %}
-          {% set popover_content = 'test' %}
-            <div class="alert alert-{{level |lower }} mb-0 mt-3" role="alert">
-              {% for line in item.message.strip().split('\n') %}
-                {{ line | urlize }}<br />
-              {% endfor %}
-            </div>
-              <span class="date" title="{{ h.render_datetime(item.timestamp, with_hours=True) }}">
-                {{ h.time_ago_from_timestamp(item.timestamp) }}
-              </span>
-      {% endfor %}
-      {% endif %}
+    <div class="invisible" name="status">
+      <h3>{{ _('Annotation Log') }}</h3>
+      <ul class="activity" name="log"></ul>
+    </div>
   {% endif %}
+  </div>
 {% endblock %}
 
 {% block secondary_content %}
@@ -129,4 +125,5 @@
 {% block scripts %}
   {{ super() }}
   {% asset 'vendor/fileupload' %}
+  {% asset 'csvtocsvw/js' %}
 {% endblock %}
