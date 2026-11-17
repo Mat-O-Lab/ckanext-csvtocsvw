@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ckanext-csvtocsvw"
+dynamic = ["version"]
+description = "CKAN extension automatically generating CSVW metadata for uploaded textual tabular data and importing the first table into the CKAN datastore."
+readme = "README.md"
+license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "Thomas Hanke", email = "thomas.hanke@iwm.fraunhofer.de" }]
+keywords = ["CKAN", "CSVW", "CSV", "JSON-LD", "RDF", "metadata", "datastore", "Mat-O-Lab"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "ckanapi",
+    "requests>=2.4.2",
+    "requests-toolbelt",
+    "rdflib",
+    "pandas",
+]
+
+[project.urls]
+Homepage = "https://github.com/Mat-O-Lab/ckanext-csvtocsvw"
+Repository = "https://github.com/Mat-O-Lab/ckanext-csvtocsvw"
+
+[project.entry-points."ckan.plugins"]
+csvtocsvw = "ckanext.csvtocsvw.plugin:CsvtocsvwPlugin"
+
+[project.entry-points."babel.extractors"]
+ckan = "ckan.lib.extract:extract_ckan"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-ckan"]
+
+[tool.setuptools.packages.find]
+include = ["ckanext*"]
+
+[tool.setuptools.package-data]
+"ckanext.csvtocsvw" = [
+    "templates/**/*.html",
+    "assets/**/*.css",
+    "assets/**/*.js",
+    "assets/**/*.yml",
+    "i18n/**/*.mo",
+    "i18n/**/*.po",
+    "i18n/**/*.pot",
+]
+
+[tool.setuptools_scm]
+# Version automatically derived from git tags (e.g. v1.0.3 -> 1.0.3)
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::sqlalchemy.exc.SADeprecationWarning",
+    "ignore::sqlalchemy.exc.SAWarning",
+    "ignore::DeprecationWarning",
+]
+addopts = "--ckan-ini test.ini"

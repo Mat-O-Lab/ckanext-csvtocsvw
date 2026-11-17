@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set version from release tag
-        run: echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required for setuptools-scm to determine version from tags
 
       - uses: actions/setup-python@v5
         with:
@@ -24,7 +24,6 @@ jobs:
 
       - name: Build release distributions
         run: |
-          # NOTE: put your own distribution build steps here.
           python -m pip install build
           python -m build
 
@@ -39,19 +38,11 @@ jobs:
     needs:
       - release-build
     permissions:
-      # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write
 
-    # Dedicated environments with protections for publishing are strongly recommended.
-    # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
     environment:
       name: pypi
-      # OPTIONAL: uncomment and update to include your PyPI project URL in the deployment status:
-      #url: https://pypi.org/p/${GITHUB_REPOSITORY#*/}
-      #
-      # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
-      # ALTERNATIVE: exactly, uncomment the following line instead:
-      url: https://pypi.org/project/${GITHUB_REPOSITORY#*/}/${{ github.event.release.name }}
+      url: https://pypi.org/project/ckanext-csvtocsvw/${{ github.event.release.tag_name }}
 
     steps:
       - name: Retrieve release distributions
@@ -64,6 +55,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+
   sign-package:
     runs-on: ubuntu-latest
     needs:
@@ -80,18 +72,19 @@ jobs:
         inputs: >-
           ./dist/*.tar.gz
           ./dist/*.whl
+
   publish-to-testpypi:
-    name: Publish Python 🐍 distribution 📦 to TestPyPI
+    name: Publish Python distribution to TestPyPI
     needs:
     - release-build
     runs-on: ubuntu-latest
 
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/${GITHUB_REPOSITORY#*/}
+      url: https://test.pypi.org/p/ckanext-csvtocsvw
 
     permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
+      id-token: write
 
     steps:
     - name: Download all the dists
@@ -99,7 +92,7 @@ jobs:
       with:
         name: release-dists
         path: dist/
-    - name: Publish distribution 📦 to TestPyPI
+    - name: Publish distribution to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
