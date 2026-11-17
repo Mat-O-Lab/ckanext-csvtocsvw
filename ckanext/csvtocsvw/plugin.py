@@ -36,6 +36,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
+        toolkit.add_resource("assets", "csvtocsvw")
         mimetypes.add_type("application/ld+json", ".jsonld")
 
     # IConfigDeclaration
@@ -47,6 +48,7 @@ class CsvtocsvwPlugin(plugins.SingletonPlugin, DefaultTranslation):
         declaration.declare_bool(group.ssl_verify, True)
         declaration.declare(group.csvtocsvw_url, "https://csvtocsvw.matolab.org")
         declaration.declare(group.ckan_token, "")
+        declaration.declare(group.db_url, toolkit.config.get("sqlalchemy.url"))
         declaration.declare(group.formats, "csv txt asc tsv")
 
     # IResourceUrlChange
