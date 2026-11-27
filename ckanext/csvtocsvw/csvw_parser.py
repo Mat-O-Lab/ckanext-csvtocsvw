@@ -92,6 +92,7 @@ def parse_csv_from_url_to_list(
     skiprows: int = 0,
     num_header_rows: int = 2,
     encoding: str = "utf-8",
+    end_row: int = None,
 ) -> List[List]:
     """Parses a csv file using the dialect given, to a list containing the content of every row as list.
 
@@ -101,6 +102,8 @@ def parse_csv_from_url_to_list(
         skiprows (int, optional): Rows to Skip reading. Defaults to 0.
         num_header_rows (int, optional): Number of header rows with names of columns. Defaults to 2.
         encoding (str, optional): Encoding of the csv file. Defaults to 'utf-8'.
+        end_row (int, optional): Line index where the table ends (exclusive), e.g. the start
+            of the next table in the file. Defaults to the end of the file.
 
     Returns:
         List[List]: List of Lists with entrys for each row. Content of header rows are not included
@@ -114,6 +117,9 @@ def parse_csv_from_url_to_list(
     # never encounters section markers like "[Daten]" with strict dtypes
     all_lines = file_data.decode(encoding).splitlines()
     data_lines = all_lines[num_header_rows + skiprows:]
+    if end_row is not None:
+        # never read into the next table, it has a different number of columns
+        data_lines = data_lines[: max(end_row - num_header_rows - skiprows, 0)]
     nrows = next(
         (i for i, l in enumerate(data_lines) if l.strip() == ""),
         len(data_lines),
@@ -249,11 +255,19 @@ class CSVWtoRDF:
             print("tables: {}".format(self.tables))
             self.table_data = list()
             if self.tables:
+                # a file can contain several tables one after another, a table
+                # ends where the next one starts
                 for key, data in self.tables.items():
                     dialect = next(self.metagraph[key : CSVW.dialect], None)
                     data["dialect"] = {
                         k: v.value for (k, v) in self.metagraph[dialect:]
                     }
+                starts = sorted(
+                    {d["dialect"][CSVW.skipRows] for d in self.tables.values()}
+                )
+                for key, data in self.tables.items():
+                    start = data["dialect"][CSVW.skipRows]
+                    data["end_row"] = next((s for s in starts if s > start), None)
                     # print(data['dialect'])
                     data["schema"] = next(
                         self.metagraph[key : CSVW.tableSchema :], None
@@ -282,6 +296,7 @@ class CSVWtoRDF:
                             columns=simple_columns(data["columns"]),
                             num_header_rows=data["dialect"][CSVW.headerRowCount],
                             encoding=data["dialect"][CSVW.encoding],
+                            end_row=data["end_row"],
                         )
 
     def add_table_data(self, g: Graph) -> Graph:
