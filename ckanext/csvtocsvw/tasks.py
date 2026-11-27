@@ -167,7 +167,11 @@ def annotate_csv(
                 pass
             parse = CSVWtoRDF(meta_data, csv_data)
             if len(parse.tables) > 0:
-                table_key = next(iter(parse.tables))
+                # a file can hold several tables (e.g. a key/value metadata
+                # block above the data); the datastore takes the largest one
+                table_key = max(
+                    parse.tables, key=lambda k: len(parse.tables[k].get("lines", []))
+                )
                 table_data = parse.tables[table_key]
                 headers = simple_columns(table_data["columns"])
                 column_names = [column["id"] for column in headers]
